@@ -11,7 +11,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 
 import { ApiService } from '../../../core/services/api.service';
-import { Application } from '../../../core/models/interfaces';
+import { Application, getStatusLabel } from '../../../core/models/interfaces';
 
 @Component({
   selector: 'app-application-detail',
@@ -74,6 +74,10 @@ import { Application } from '../../../core/models/interfaces';
                 <mat-chip [class]="'status-' + application.status">
                   {{ getStatusLabel(application.status) }}
                 </mat-chip>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Serial Number:</span>
+                <span class="detail-value">{{ application.serial_number }}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Created:</span>
@@ -162,17 +166,11 @@ export class ApplicationDetailComponent implements OnInit {
   }
 
   canEdit(): boolean {
-    return this.application?.status === 'draft' || this.application?.status === 'returned';
+    return this.application?.status === 20 || this.application?.status === 44; // draft or returned
   }
 
-  getStatusLabel(status: string): string {
-    switch (status) {
-      case 'draft': return 'Draft';
-      case 'returned': return 'Returned';
-      case 'submitted': return 'Submitted';
-      case 'completed': return 'Completed';
-      default: return 'Unknown';
-    }
+  getStatusLabel(status: number): string {
+    return getStatusLabel(status);
   }
 
   formatDate(dateString: string): string {

@@ -11,13 +11,13 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 
-import { Application, ApplicationStatus } from '../../../core/models/interfaces';
+import { Application, ApplicationStatus, getStatusString, getStatusLabel, getStatusIcon } from '../../../core/models/interfaces';
 
 @Component({
   selector: 'app-applications-list',
   standalone: true,
   imports: [
-    CommonModule, // ✅ Added CommonModule
+    CommonModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -278,19 +278,19 @@ import { Application, ApplicationStatus } from '../../../core/models/interfaces'
       box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
     }
 
-    .application-card.status-draft {
+    .application-card.status-20 {
       border-left-color: #f39c12;
     }
 
-    .application-card.status-returned {
+    .application-card.status-44 {
       border-left-color: #e74c3c;
     }
 
-    .application-card.status-submitted {
+    .application-card.status-11 {
       border-left-color: #3498db;
     }
 
-    .application-card.status-completed {
+    .application-card.status-21 {
       border-left-color: #27ae60;
     }
 
@@ -333,22 +333,22 @@ import { Application, ApplicationStatus } from '../../../core/models/interfaces'
       gap: 4px;
     }
 
-    .status-chip.status-draft {
+    .status-chip.status-20 {
       background: rgba(243, 156, 18, 0.1);
       color: #f39c12;
     }
 
-    .status-chip.status-returned {
+    .status-chip.status-44 {
       background: rgba(231, 76, 60, 0.1);
       color: #e74c3c;
     }
 
-    .status-chip.status-submitted {
+    .status-chip.status-11 {
       background: rgba(52, 152, 219, 0.1);
       color: #3498db;
     }
 
-    .status-chip.status-completed {
+    .status-chip.status-21 {
       background: rgba(39, 174, 96, 0.1);
       color: #27ae60;
     }
@@ -559,24 +559,12 @@ export class ApplicationsListComponent {
     }
   }
 
-  getStatusIcon(status: ApplicationStatus): string {
-    switch (status) {
-      case 'draft': return 'edit';
-      case 'returned': return 'undo';
-      case 'submitted': return 'send';
-      case 'completed': return 'check_circle';
-      default: return 'help';
-    }
+  getStatusIcon(status: number): string {
+    return getStatusIcon(status);
   }
 
-  getStatusLabel(status: ApplicationStatus): string {
-    switch (status) {
-      case 'draft': return 'Draft';
-      case 'returned': return 'Returned';
-      case 'submitted': return 'Submitted';
-      case 'completed': return 'Completed';
-      default: return 'Unknown';
-    }
+  getStatusLabel(status: number): string {
+    return getStatusLabel(status);
   }
 
   formatDate(dateString: string): string {
@@ -592,89 +580,89 @@ export class ApplicationsListComponent {
     }
   }
 
-  showProgress(status: ApplicationStatus): boolean {
-    return status === 'submitted';
+  showProgress(status: number): boolean {
+    return status === 11; // submitted
   }
 
-  getProgressPercentage(status: ApplicationStatus): number {
+  getProgressPercentage(status: number): number {
     switch (status) {
-      case 'draft': return 25;
-      case 'submitted': return 75;
-      case 'completed': return 100;
-      case 'returned': return 50;
+      case 20: return 25; // draft
+      case 11: return 75; // submitted
+      case 21: return 100; // completed
+      case 44: return 50; // returned
       default: return 0;
     }
   }
 
-  getProgressLabel(status: ApplicationStatus): string {
+  getProgressLabel(status: number): string {
     switch (status) {
-      case 'draft': return 'In Progress';
-      case 'submitted': return 'Under Review';
-      case 'completed': return 'Completed';
-      case 'returned': return 'Needs Attention';
+      case 20: return 'In Progress';
+      case 11: return 'Under Review';
+      case 21: return 'Completed';
+      case 44: return 'Needs Attention';
       default: return '';
     }
   }
 
   getPrimaryAction(application: Application): void {
     switch (application.status) {
-      case 'draft':
+      case 20: // draft
         this.onContinue.emit(application);
         break;
-      case 'returned':
+      case 44: // returned
         this.onResubmit.emit(application);
         break;
-      case 'submitted':
+      case 11: // submitted
         this.onTrack.emit(application);
         break;
-      case 'completed':
+      case 21: // completed
         this.onDownload.emit(application);
         break;
     }
   }
 
-  getPrimaryActionLabel(status: ApplicationStatus): string {
+  getPrimaryActionLabel(status: number): string {
     switch (status) {
-      case 'draft': return 'Continue';
-      case 'returned': return 'Resubmit';
-      case 'submitted': return 'Track';
-      case 'completed': return 'Download';
+      case 20: return 'Continue'; // draft
+      case 44: return 'Resubmit'; // returned
+      case 11: return 'Track'; // submitted
+      case 21: return 'Download'; // completed
       default: return '';
     }
   }
 
-  getPrimaryActionIcon(status: ApplicationStatus): string {
+  getPrimaryActionIcon(status: number): string {
     switch (status) {
-      case 'draft': return 'play_arrow';
-      case 'returned': return 'send';
-      case 'submitted': return 'track_changes';
-      case 'completed': return 'download';
+      case 20: return 'play_arrow'; // draft
+      case 44: return 'send'; // returned
+      case 11: return 'track_changes'; // submitted
+      case 21: return 'download'; // completed
       default: return 'arrow_forward';
     }
   }
 
-  // Permission checks
-  canEdit(status: ApplicationStatus): boolean {
-    return status === 'draft' || status === 'returned';
+  // Permission checks - Updated to use numeric status
+  canEdit(status: number): boolean {
+    return status === 20 || status === 44; // draft or returned
   }
 
-  canContinue(status: ApplicationStatus): boolean {
-    return status === 'draft';
+  canContinue(status: number): boolean {
+    return status === 20; // draft
   }
 
-  canResubmit(status: ApplicationStatus): boolean {
-    return status === 'returned';
+  canResubmit(status: number): boolean {
+    return status === 44; // returned
   }
 
-  canTrack(status: ApplicationStatus): boolean {
-    return status === 'submitted';
+  canTrack(status: number): boolean {
+    return status === 11; // submitted
   }
 
-  canDownload(status: ApplicationStatus): boolean {
-    return status === 'completed';
+  canDownload(status: number): boolean {
+    return status === 21; // completed
   }
 
-  canDelete(status: ApplicationStatus): boolean {
-    return status === 'draft';
+  canDelete(status: number): boolean {
+    return status === 20; // draft only
   }
 }

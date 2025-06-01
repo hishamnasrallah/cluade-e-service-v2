@@ -122,7 +122,7 @@ export interface LookupResponse {
   results: LookupOption[];
 }
 
-// Application models
+// Application models - Fixed to use numeric status from API
 export interface Application {
   id: number;
   applicant: number;
@@ -212,6 +212,7 @@ export type FieldType =
   | 'decimal'
   | 'percentage';
 
+// Updated ApplicationStatus to work with both string and numeric values
 export type ApplicationStatus = 'draft' | 'returned' | 'submitted' | 'completed' | 'all';
 
 export type ConditionOperation =
@@ -229,6 +230,51 @@ export type ConditionOperation =
   | 'matches'
   | 'before'
   | 'after';
+
+// Status mapping utilities
+export const STATUS_MAPPING: { [key: number]: ApplicationStatus } = {
+  20: 'draft',
+  11: 'submitted',
+  21: 'completed',
+  44: 'returned'
+};
+
+export const STATUS_REVERSE_MAPPING: { [key in ApplicationStatus]: number[] } = {
+  'draft': [20],
+  'submitted': [11],
+  'completed': [21],
+  'returned': [44],
+  'all': [20, 11, 21, 44]
+};
+
+// Helper functions to convert between numeric and string status
+export function getStatusString(numericStatus: number): ApplicationStatus {
+  return STATUS_MAPPING[numericStatus] || 'draft';
+}
+
+export function getStatusNumbers(stringStatus: ApplicationStatus): number[] {
+  return STATUS_REVERSE_MAPPING[stringStatus] || [];
+}
+
+export function getStatusLabel(status: number): string {
+  const statusMap: { [key: number]: string } = {
+    20: 'Draft',
+    11: 'Submitted',
+    21: 'Completed',
+    44: 'Returned'
+  };
+  return statusMap[status] || 'Unknown';
+}
+
+export function getStatusIcon(status: number): string {
+  const iconMap: { [key: number]: string } = {
+    20: 'edit',
+    11: 'send',
+    21: 'check_circle',
+    44: 'undo'
+  };
+  return iconMap[status] || 'help';
+}
 
 // Field visibility and validation helper functions
 export function evaluateVisibilityCondition(

@@ -24,8 +24,8 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
       <input matInput
              [formControl]="control"
              [placeholder]="field.display_name"
-             [maxlength]="field.max_length"
-             [minlength]="field.min_length"
+             [maxlength]="getMaxLength()"
+             [minlength]="getMinLength()"
              [readonly]="field.is_disabled">
       <mat-hint *ngIf="field.max_length">
         {{ control.value?.length || 0 }}/{{ field.max_length }}
@@ -35,6 +35,12 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
       </mat-error>
       <mat-error *ngIf="control.hasError('pattern')">
         Invalid format
+      </mat-error>
+      <mat-error *ngIf="control.hasError('minlength')">
+        Minimum length is {{ field.min_length }}
+      </mat-error>
+      <mat-error *ngIf="control.hasError('maxlength')">
+        Maximum length is {{ field.max_length }}
       </mat-error>
     </mat-form-field>
   `,
@@ -59,6 +65,14 @@ export class TextFieldComponent implements ControlValueAccessor {
       this.onChange(value);
       this.valueChange.emit(value);
     });
+  }
+
+  getMaxLength(): number | null {
+    return this.field.max_length ?? null;
+  }
+
+  getMinLength(): number | null {
+    return this.field.min_length ?? null;
   }
 
   writeValue(value: any): void {

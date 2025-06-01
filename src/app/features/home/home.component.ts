@@ -14,7 +14,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { ApiService } from '../../core/services/api.service';
-import { Application, ApplicationsResponse, ApplicationStatus } from '../../core/models/interfaces';
+import { Application, ApplicationsResponse, ApplicationStatus, getStatusNumbers } from '../../core/models/interfaces';
 import { ApplicationsListComponent } from '../applications/applications-list/applications-list.component';
 
 @Component({
@@ -450,26 +450,17 @@ export class HomeComponent implements OnInit {
       return this.applications;
     }
 
-    const statusMap: { [key: string]: number[] } = {
-      'draft': [20], // Status 20 appears to be draft
-      'returned': [44], // Status 44 appears to be returned
-      'submitted': [11, 21], // Status 11 and 21 appear to be submitted/in progress
-      'completed': [21] // Status 21 might also be completed, adjust based on actual API
-    };
-
-    const statusCodes = statusMap[status] || [];
+    const statusCodes = getStatusNumbers(status);
     return this.applications.filter(app => statusCodes.includes(app.status));
   }
+
   updateStats(): void {
     this.applicationStats.forEach(stat => {
       const statusKey = stat.label.toLowerCase() as ApplicationStatus;
-      if (statusKey === 'all') {
-        stat.count = this.applications.length;
-      } else {
-        stat.count = this.getApplicationsByStatus(statusKey).length;
-      }
+      stat.count = this.getApplicationsByStatus(statusKey).length;
     });
   }
+
   onTabChange(event: any): void {
     this.selectedTabIndex = event.index;
   }
