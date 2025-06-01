@@ -79,6 +79,7 @@ export class GuestGuard implements CanActivate {
 
   constructor(
     private authService: AuthService,
+    private configService: ConfigService,
     private router: Router
   ) {}
 
@@ -88,6 +89,13 @@ export class GuestGuard implements CanActivate {
   ): boolean {
 
     console.log('👤 GuestGuard: Checking guest access for route:', state.url);
+
+    // First check if the app is configured (for login page access)
+    if (!this.configService.isConfigured() && state.url !== '/config') {
+      console.log('🔄 GuestGuard: App not configured, redirecting to config page');
+      this.router.navigate(['/config']);
+      return false;
+    }
 
     // If user is already authenticated, redirect to home
     if (this.authService.isAuthenticated()) {
@@ -109,6 +117,7 @@ export class ConfigGuard implements CanActivate {
 
   constructor(
     private configService: ConfigService,
+    private authService: AuthService,
     private router: Router
   ) {}
 
@@ -119,9 +128,17 @@ export class ConfigGuard implements CanActivate {
 
     console.log('⚙️ ConfigGuard: Checking config access for route:', state.url);
 
-    // Always allow access to config page
-    // But if already configured and trying to access other routes,
-    // this guard can provide logic for that
+    // Always allow access to config page - this is the entry point
+    // However, if user is already authenticated and app is configured,
+    // and they're trying to access config, we might want to redirect them
+
+    if (this.configService.isConfigured() && this.authService.isAuthenticated()) {
+      console.log('🔄 ConfigGuard: App already configured and user authenticated, redirecting to home');
+      this.router.navigate(['/home']);
+      return false;
+    }
+
+    // Allow access to config page
     console.log('✅ ConfigGuard: Config access allowed');
     return true;
   }

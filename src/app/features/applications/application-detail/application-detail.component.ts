@@ -9,9 +9,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { ApiService } from '../../../core/services/api.service';
-import { Application, getStatusLabel } from '../../../core/models/interfaces';
+import { Application, getStatusLabel, getStatusIcon, ServiceFlowResponse } from '../../../core/models/interfaces';
 
 @Component({
   selector: 'app-application-detail',
@@ -32,7 +34,20 @@ import { Application, getStatusLabel } from '../../../core/models/interfaces';
         <button mat-icon-button (click)="goBack()" class="back-btn">
           <mat-icon>arrow_back</mat-icon>
         </button>
-        <h1 class="detail-title">Application Details</h1>
+        <div class="header-info">
+          <h1 class="detail-title">Application Details</h1>
+          <p class="detail-subtitle" *ngIf="application">
+            Application #{{ application.serial_number }}
+          </p>
+        </div>
+        <div class="header-actions">
+          <button mat-icon-button
+                  (click)="refreshApplication()"
+                  matTooltip="Refresh"
+                  [disabled]="isLoading">
+            <mat-icon>refresh</mat-icon>
+          </button>
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -49,86 +64,582 @@ import { Application, getStatusLabel } from '../../../core/models/interfaces';
             <div class="error-details">
               <h3>Unable to Load Application</h3>
               <p>{{ error }}</p>
-              <button mat-raised-button color="primary" (click)="loadApplication()">
-                <mat-icon>refresh</mat-icon>
-                Try Again
-              </button>
+              <div class="error-actions">
+                <button mat-raised-button color="primary" (click)="loadApplication()">
+                  <mat-icon>refresh</mat-icon>
+                  Try Again
+                </button>
+                <button mat-button (click)="goBack()">
+                  <mat-icon>arrow_back</mat-icon>
+                  Go Back
+                </button>
+              </div>
             </div>
           </div>
         </mat-card-content>
       </mat-card>
 
       <!-- Application Details -->
-      <mat-card class="detail-card" *ngIf="application && !isLoading && !error">
-        <mat-card-header>
-          <mat-card-title>{{ application.title || 'Untitled Application' }}</mat-card-title>
-          <mat-card-subtitle>Application #{{ application.id }}</mat-card-subtitle>
-        </mat-card-header>
-
-        <mat-card-content class="detail-content">
-          <div class="detail-section">
-            <h3>Basic Information</h3>
-            <div class="detail-grid">
-              <div class="detail-item">
-                <span class="detail-label">Status:</span>
-                <mat-chip [class]="'status-' + application.status">
+      <div class="detail-content" *ngIf="application && !isLoading && !error">
+        <!-- Basic Information Card -->
+        <mat-card class="detail-card">
+          <mat-card-header>
+            <mat-card-title>Basic Information</mat-card-title>
+          </mat-card-header>
+          <mat-card-content class="basic-info-content">
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">Status:</span>
+                <mat-chip [class]="'status-' + application.status" class="status-chip">
+                  <mat-icon class="chip-icon">{{ getStatusIcon(application.status) }}</mat-icon>
                   {{ getStatusLabel(application.status) }}
                 </mat-chip>
               </div>
-              <div class="detail-item">
-                <span class="detail-label">Serial Number:</span>
-                <span class="detail-value">{{ application.serial_number }}</span>
+              <div class="info-item">
+                <span class="info-label">Serial Number:</span>
+                <span class="info-value">{{ application.serial_number }}</span>
               </div>
-              <div class="detail-item">
-                <span class="detail-label">Created:</span>
-                <span class="detail-value">{{ formatDate(application.created_at) }}</span>
+              <div class="info-item">
+                <span class="info-label">Application ID:</span>
+                <span class="info-value">#{{ application.id }}</span>
               </div>
-              <div class="detail-item">
-                <span class="detail-label">Updated:</span>
-                <span class="detail-value">{{ formatDate(application.updated_at) }}</span>
+              <div class="info-item">
+                <span class="info-label">Case Type:</span>
+                <span class="info-value">{{ application.case_type }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Created:</span>
+                <span class="info-value">{{ formatDate(application.created_at) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Last Updated:</span>
+                <span class="info-value">{{ formatDate(application.updated_at) }}</span>
               </div>
             </div>
-          </div>
+          </mat-card-content>
+        </mat-card>
 
-          <mat-divider></mat-divider>
+        <!-- Application Data Card -->
+        <mat-card class="detail-card">
+          <mat-card-header>
+            <mat-card-title>Application Data</mat-card-title>
+            <mat-card-subtitle>Form fields and submitted information</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content class="application-data-content">
+            <div class="data-grid">
+              <div
+                class="data-item"
+                *ngFor="let item of getFormattedApplicationData()"
+                [class.file-item]="item.isFile">
 
-          <div class="detail-section">
-            <h3>Application Data</h3>
-            <div class="data-display">
-              <pre>{{ formatApplicationData() }}</pre>
+                <div class="data-label">
+                  <mat-icon class="data-icon" [class.file-icon]="item.isFile">
+                    {{ item.isFile ? 'attach_file' : 'info' }}
+                  </mat-icon>
+                  <span>{{ item.label }}</span>
+                </div>
+
+                <div class="data-value" [class.file-value]="item.isFile">
+                  <span *ngIf="!item.isFile">{{ item.displayValue }}</span>
+
+                  <!-- File handling -->
+                  <div *ngIf="item.isFile" class="file-info">
+                    <mat-icon class="file-type-icon">description</mat-icon>
+                    <div class="file-details">
+                      <span class="file-name">{{ item.fileName }}</span>
+                      <span class="file-type">{{ item.fileType }}</span>
+                    </div>
+                    <button mat-icon-button
+                            color="primary"
+                            (click)="downloadFile(item.fileUrl)"
+                            matTooltip="Download file">
+                      <mat-icon>download</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </mat-card-content>
 
-        <mat-card-actions class="detail-actions">
-          <button mat-button (click)="goBack()">
-            <mat-icon>arrow_back</mat-icon>
-            Back to List
-          </button>
+            <!-- No data message -->
+            <div class="no-data" *ngIf="getFormattedApplicationData().length === 0">
+              <mat-icon class="no-data-icon">inbox</mat-icon>
+              <p>No application data available</p>
+            </div>
+          </mat-card-content>
+        </mat-card>
 
-          <button mat-raised-button
-                  color="primary"
-                  *ngIf="canEdit()"
-                  (click)="editApplication()">
-            <mat-icon>edit</mat-icon>
-            Edit Application
-          </button>
-        </mat-card-actions>
-      </mat-card>
+        <!-- Actions Card -->
+        <mat-card class="detail-card actions-card">
+          <mat-card-content class="actions-content">
+            <div class="action-group">
+              <h4 class="action-group-title">Application Actions</h4>
+              <div class="action-buttons">
+                <button mat-button (click)="goBack()" class="secondary-btn">
+                  <mat-icon>arrow_back</mat-icon>
+                  Back to List
+                </button>
+
+                <button mat-raised-button
+                        color="accent"
+                        *ngIf="canContinue()"
+                        (click)="continueApplication()"
+                        [disabled]="isProcessing"
+                        class="continue-btn">
+                  <mat-spinner diameter="20" *ngIf="isProcessing"></mat-spinner>
+                  <mat-icon *ngIf="!isProcessing">edit</mat-icon>
+                  Continue Application
+                </button>
+
+                <button mat-raised-button
+                        color="primary"
+                        *ngIf="canTrack()"
+                        (click)="trackApplication()"
+                        class="track-btn">
+                  <mat-icon>track_changes</mat-icon>
+                  Track Progress
+                </button>
+
+                <button mat-raised-button
+                        color="primary"
+                        *ngIf="canDownload()"
+                        (click)="downloadApplication()"
+                        class="download-btn">
+                  <mat-icon>download</mat-icon>
+                  Download
+                </button>
+              </div>
+            </div>
+
+            <!-- Danger zone -->
+            <div class="action-group danger-group" *ngIf="canDelete()">
+              <mat-divider></mat-divider>
+              <h4 class="action-group-title danger-title">Danger Zone</h4>
+              <div class="action-buttons">
+                <button mat-raised-button
+                        color="warn"
+                        (click)="confirmDeleteApplication()"
+                        [disabled]="isProcessing"
+                        class="delete-btn">
+                  <mat-icon>delete</mat-icon>
+                  Delete Application
+                </button>
+              </div>
+              <p class="danger-description">
+                This action cannot be undone. The application and all its data will be permanently deleted.
+              </p>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
     </div>
   `,
-  styleUrls: ['./application-detail.component.scss']
+  styles: [`
+    .application-detail-container {
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .back-btn {
+      background: #f8f9fa;
+      color: #6c757d;
+      width: 48px;
+      height: 48px;
+    }
+
+    .back-btn:hover {
+      background: #e9ecef;
+      color: #495057;
+    }
+
+    .header-info {
+      flex: 1;
+    }
+
+    .detail-title {
+      font-size: 28px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    .detail-subtitle {
+      font-size: 16px;
+      color: #7f8c8d;
+      margin: 4px 0 0 0;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      gap: 16px;
+    }
+
+    .loading-text {
+      color: #6c757d;
+      font-size: 16px;
+      margin: 0;
+    }
+
+    .error-card {
+      margin: 40px auto;
+      max-width: 600px;
+      border-radius: 16px;
+    }
+
+    .error-content {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      text-align: left;
+    }
+
+    .error-icon {
+      font-size: 48px;
+      color: #e74c3c;
+      flex-shrink: 0;
+    }
+
+    .error-details h3 {
+      margin: 0 0 8px 0;
+      color: #2c3e50;
+      font-size: 20px;
+    }
+
+    .error-details p {
+      margin: 0 0 16px 0;
+      color: #7f8c8d;
+      line-height: 1.5;
+    }
+
+    .error-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .detail-content {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .detail-card {
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .basic-info-content {
+      padding: 24px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .info-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .info-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .info-value {
+      font-size: 16px;
+      color: #2c3e50;
+      font-weight: 500;
+    }
+
+    .status-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: fit-content;
+      font-weight: 600;
+      font-size: 13px;
+      height: 32px;
+      border-radius: 16px;
+    }
+
+    .chip-icon {
+      font-size: 16px !important;
+      width: 16px;
+      height: 16px;
+    }
+
+    .status-chip.status-20 {
+      background: rgba(243, 156, 18, 0.1);
+      color: #f39c12;
+    }
+
+    .status-chip.status-44 {
+      background: rgba(231, 76, 60, 0.1);
+      color: #e74c3c;
+    }
+
+    .status-chip.status-11 {
+      background: rgba(52, 152, 219, 0.1);
+      color: #3498db;
+    }
+
+    .status-chip.status-21 {
+      background: rgba(39, 174, 96, 0.1);
+      color: #27ae60;
+    }
+
+    .application-data-content {
+      padding: 24px;
+    }
+
+    .data-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .data-item {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      border-left: 4px solid #e9ecef;
+    }
+
+    .data-item.file-item {
+      border-left-color: #3498db;
+      background: #f0f8ff;
+    }
+
+    .data-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 200px;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+
+    .data-icon {
+      font-size: 20px;
+      color: #7f8c8d;
+    }
+
+    .data-icon.file-icon {
+      color: #3498db;
+    }
+
+    .data-value {
+      flex: 1;
+      color: #555;
+      font-size: 15px;
+    }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .file-type-icon {
+      font-size: 24px;
+      color: #3498db;
+    }
+
+    .file-details {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .file-name {
+      font-weight: 500;
+      color: #2c3e50;
+    }
+
+    .file-type {
+      font-size: 12px;
+      color: #7f8c8d;
+      text-transform: uppercase;
+    }
+
+    .no-data {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      text-align: center;
+      color: #7f8c8d;
+    }
+
+    .no-data-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      color: #bdc3c7;
+    }
+
+    .actions-card {
+      border-top: 4px solid #3498db;
+    }
+
+    .actions-content {
+      padding: 24px;
+    }
+
+    .action-group {
+      margin-bottom: 24px;
+    }
+
+    .action-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .action-group-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin: 0 0 16px 0;
+    }
+
+    .danger-title {
+      color: #e74c3c;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .secondary-btn {
+      color: #6c757d;
+      border: 1px solid #dee2e6;
+    }
+
+    .continue-btn {
+      background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+      color: white;
+      font-weight: 600;
+    }
+
+    .track-btn {
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
+      font-weight: 600;
+    }
+
+    .download-btn {
+      background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+      color: white;
+      font-weight: 600;
+    }
+
+    .delete-btn {
+      background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+      color: white;
+      font-weight: 600;
+    }
+
+    .danger-group {
+      border-top: 1px solid #fee;
+      padding-top: 24px;
+      background: #fef9f9;
+      border-radius: 8px;
+      margin-top: 16px;
+      padding: 16px;
+    }
+
+    .danger-description {
+      margin: 12px 0 0 0;
+      font-size: 14px;
+      color: #e74c3c;
+      font-style: italic;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .application-detail-container {
+        padding: 16px;
+      }
+
+      .detail-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .detail-title {
+        font-size: 24px;
+      }
+
+      .info-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .data-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .data-label {
+        min-width: auto;
+      }
+
+      .action-buttons {
+        flex-direction: column;
+      }
+
+      .action-buttons button {
+        width: 100%;
+      }
+
+      .error-content {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+  `]
 })
 export class ApplicationDetailComponent implements OnInit {
   application: Application | null = null;
   isLoading = false;
+  isProcessing = false;
   error: string | null = null;
   applicationId: number = 0;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private snackBar: MatSnackBar
   ) {}
 
   ngOnInit(): void {
@@ -136,6 +647,8 @@ export class ApplicationDetailComponent implements OnInit {
       this.applicationId = parseInt(params['id']);
       if (this.applicationId) {
         this.loadApplication();
+      } else {
+        this.error = 'Invalid application ID';
       }
     });
   }
@@ -144,29 +657,32 @@ export class ApplicationDetailComponent implements OnInit {
     this.isLoading = true;
     this.error = null;
 
+    console.log('📋 ApplicationDetail: Loading application with ID:', this.applicationId);
+
     this.apiService.getCase(this.applicationId).subscribe({
       next: (application: Application) => {
+        console.log('✅ ApplicationDetail: Application loaded:', application);
         this.application = application;
         this.isLoading = false;
       },
       error: (error: any) => {
+        console.error('❌ ApplicationDetail: Error loading application:', error);
         this.error = error.message || 'Failed to load application';
         this.isLoading = false;
       }
     });
   }
 
+  refreshApplication(): void {
+    this.loadApplication();
+  }
+
   goBack(): void {
     this.router.navigate(['/home']);
   }
 
-  editApplication(): void {
-    // Navigate to edit page or open edit modal
-    console.log('Edit application:', this.application);
-  }
-
-  canEdit(): boolean {
-    return this.application?.status === 20 || this.application?.status === 44; // draft or returned
+  getStatusIcon(status: number): string {
+    return getStatusIcon(status);
   }
 
   getStatusLabel(status: number): string {
@@ -188,8 +704,186 @@ export class ApplicationDetailComponent implements OnInit {
     }
   }
 
-  formatApplicationData(): string {
-    if (!this.application) return '';
-    return JSON.stringify(this.application, null, 2);
+  getFormattedApplicationData(): any[] {
+    if (!this.application?.case_data) return [];
+
+    const formattedData: any[] = [];
+    const caseData = this.application.case_data;
+
+    Object.entries(caseData).forEach(([key, value]) => {
+      // Skip uploaded_files as they're handled separately
+      if (key === 'uploaded_files') return;
+
+      // Format the field name (convert snake_case to readable format)
+      const label = this.formatFieldName(key);
+
+      formattedData.push({
+        key,
+        label,
+        value,
+        displayValue: this.formatFieldValue(value),
+        isFile: false
+      });
+    });
+
+    // Handle uploaded files separately
+    if (caseData['uploaded_files'] && Array.isArray(caseData['uploaded_files'])) {
+      caseData['uploaded_files'].forEach((file: any, index: number) => {
+        const fileName = this.extractFileName(file.file_url);
+        formattedData.push({
+          key: `file_${index}`,
+          label: file.type || 'Uploaded File',
+          value: file,
+          displayValue: fileName,
+          isFile: true,
+          fileName,
+          fileType: file.type || 'Unknown',
+          fileUrl: file.file_url
+        });
+      });
+    }
+
+    return formattedData;
+  }
+
+  private formatFieldName(fieldName: string): string {
+    return fieldName
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  private formatFieldValue(value: any): string {
+    if (value === null || value === undefined) return 'Not provided';
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    if (Array.isArray(value)) return value.join(', ');
+    return String(value);
+  }
+
+  private extractFileName(fileUrl: string): string {
+    const parts = fileUrl.split('/');
+    return parts[parts.length - 1] || 'Unknown file';
+  }
+
+  downloadFile(fileUrl: string): void {
+    console.log('📎 ApplicationDetail: Downloading file:', fileUrl);
+
+    // Open file in new tab for download
+    window.open(fileUrl, '_blank');
+
+    this.snackBar.open('File download started', 'Close', {
+      duration: 3000,
+      panelClass: ['success-snackbar']
+    });
+  }
+
+  // Permission check methods
+  canContinue(): boolean {
+    return this.application?.status === 20 || this.application?.status === 44; // draft or returned
+  }
+
+  canTrack(): boolean {
+    return this.application?.status === 11; // submitted
+  }
+
+  canDownload(): boolean {
+    return this.application?.status === 21; // completed
+  }
+
+  canDelete(): boolean {
+    return this.application?.status === 20; // draft only
+  }
+
+  // Action methods
+  continueApplication(): void {
+    if (!this.application) return;
+
+    console.log('🔄 ApplicationDetail: Continuing application:', this.application.id);
+    this.isProcessing = true;
+
+    // Navigate to service wizard with continue mode
+    // We need to pass both the service code and the application ID
+    // First, we need to determine the service code from case_type
+    this.determineServiceCodeAndNavigate();
+  }
+
+  private determineServiceCodeAndNavigate(): void {
+    // Since we don't have a direct mapping from case_type to service code,
+    // we'll use a simple approach: navigate to a continue route with the application ID
+    // The service wizard will need to handle loading the existing application data
+
+    this.router.navigate(['/application', this.application!.id, 'continue']).then(() => {
+      this.isProcessing = false;
+    }).catch((error) => {
+      console.error('❌ ApplicationDetail: Navigation error:', error);
+      this.isProcessing = false;
+      this.snackBar.open('Failed to navigate to continue application', 'Close', {
+        duration: 3000,
+        panelClass: ['error-snackbar']
+      });
+    });
+  }
+
+  trackApplication(): void {
+    console.log('📊 ApplicationDetail: Tracking application:', this.application?.id);
+
+    this.snackBar.open('Tracking feature not yet implemented', 'Close', {
+      duration: 3000,
+      panelClass: ['info-snackbar']
+    });
+  }
+
+  downloadApplication(): void {
+    console.log('💾 ApplicationDetail: Downloading application:', this.application?.id);
+
+    this.snackBar.open('Download feature not yet implemented', 'Close', {
+      duration: 3000,
+      panelClass: ['info-snackbar']
+    });
+  }
+
+  confirmDeleteApplication(): void {
+    if (!this.application) return;
+
+    const confirmed = confirm(
+      `Are you sure you want to delete this application?\n\n` +
+      `Application #${this.application.serial_number}\n` +
+      `This action cannot be undone.`
+    );
+
+    if (confirmed) {
+      this.deleteApplication();
+    }
+  }
+
+  private deleteApplication(): void {
+    if (!this.application) return;
+
+    console.log('🗑️ ApplicationDetail: Deleting application:', this.application.id);
+    this.isProcessing = true;
+
+    this.apiService.deleteCase(this.application.id).subscribe({
+      next: () => {
+        console.log('✅ ApplicationDetail: Application deleted successfully');
+
+        this.snackBar.open('Application deleted successfully', 'Close', {
+          duration: 3000,
+          panelClass: ['success-snackbar']
+        });
+
+        // Navigate back to home after successful deletion
+        setTimeout(() => {
+          this.router.navigate(['/home']);
+        }, 1000);
+      },
+      error: (error: any) => {
+        console.error('❌ ApplicationDetail: Error deleting application:', error);
+        this.isProcessing = false;
+
+        this.snackBar.open('Failed to delete application. Please try again.', 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
+      }
+    });
   }
 }

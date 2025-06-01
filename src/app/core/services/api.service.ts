@@ -1,7 +1,7 @@
 // src/app/core/services/api.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
+import { Observable, throwError, of } from 'rxjs';
 import { map, catchError, retry } from 'rxjs/operators';
 
 import { ConfigService } from './config.service';
@@ -193,7 +193,10 @@ export class ApiService {
   }
 
   /**
-   * Update an existing case/application
+   * Update an existing case/application (for continuing applications)
+   * Uses PUT method to the /case/cases/{id}/ endpoint
+   * @param caseId - The ID of the case to update
+   * @param caseData - Updated case data
    */
   updateCase(caseId: number, caseData: Partial<CaseSubmission>): Observable<any> {
     const url = this.buildUrl(`/case/cases/${caseId}/`);
@@ -202,6 +205,26 @@ export class ApiService {
 
     // Always use FormData for case updates to maintain consistency
     return this.submitCaseAsFormData(url, caseData, 'PUT');
+  }
+
+  /**
+   * Continue/edit an existing application
+   * This is an alias for updateCase but with more specific logging
+   * @param applicationId - The ID of the application to continue
+   * @param caseData - Updated case data
+   */
+  continueApplication(applicationId: number, caseData: Partial<CaseSubmission>): Observable<any> {
+    console.log('🔄 API: Continuing application:', applicationId);
+    return this.updateCase(applicationId, caseData).pipe(
+      map(response => {
+        console.log('✅ API: Application continued successfully:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error('❌ API: Error continuing application:', error);
+        return this.handleError(error);
+      })
+    );
   }
 
   /**
@@ -225,9 +248,10 @@ export class ApiService {
 
   /**
    * Delete a case/application
+   * Uses the correct endpoint: /case/cases/{id}/
    */
   deleteCase(caseId: number): Observable<any> {
-    const url = this.buildUrl(`/case/api/cases/${caseId}/`);
+    const url = this.buildUrl(`/case/cases/${caseId}/`);
 
     console.log('🗑️ API: Deleting case:', caseId);
 
@@ -260,6 +284,41 @@ export class ApiService {
         }),
         catchError(this.handleError)
       );
+  }
+
+  /**
+   * Get service code from case type (service ID) using direct lookup
+   * @param caseType - The service ID (case_type from application)
+   */
+  getServiceCodeFromCaseType(caseType: number): Observable<string> {
+    const url = this.buildUrl('/lookups/');
+    const params = new HttpParams().set('id', caseType.toString());
+
+    console.log('🔍 API: Getting service code for case type (service ID):', caseType, 'URL:', `${url}?id=${caseType}`);
+
+    return this.http.get<LookupResponse>(url, {
+      params,
+      headers: this.JSON_HEADERS
+    }).pipe(
+      retry(2),
+      map(response => {
+        console.log('✅ API: Lookup response for service ID', caseType, ':', response);
+
+        if (response.results && response.results.length > 0) {
+          const service = response.results[0];
+          console.log('✅ API: Found service:', service.name, 'Code:', service.code);
+          return service.code;
+        } else {
+          console.warn('⚠️ API: No service found for ID', caseType, 'defaulting to "01"');
+          return '01'; // Default fallback
+        }
+      }),
+      catchError(error => {
+        console.error('❌ API: Error fetching service for ID', caseType, ':', error);
+        // Return default service code as fallback
+        return of('01');
+      })
+    );
   }
 
   /**

@@ -27,7 +27,7 @@ export class CaseService {
   }
 
   deleteCase(id: number): Observable<any> {
-    return this.apiService.delete(`/case/api/cases/${id}/`);
+    return this.apiService.delete(`/case/cases/${id}/`);
   }
 
   submitCase(id: number): Observable<any> {

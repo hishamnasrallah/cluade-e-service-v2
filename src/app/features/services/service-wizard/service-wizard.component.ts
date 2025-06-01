@@ -20,7 +20,8 @@ import {
   ServiceFlowResponse,
   ServiceFlowStep,
   CaseSubmission,
-  WizardState
+  WizardState,
+  Application
 } from '../../../core/models/interfaces';
 
 @Component({
@@ -46,8 +47,16 @@ import {
             <mat-icon>arrow_back</mat-icon>
           </button>
           <div class="header-info">
-            <h1 class="wizard-title">{{ currentStep?.name || 'Service Application' }}</h1>
-            <p class="wizard-subtitle" *ngIf="serviceCode">Service: {{ serviceCode }}</p>
+            <h1 class="wizard-title">
+              {{ isEditMode ? 'Edit Application' : 'Service Application' }}
+              {{ getWizardTitle() }}
+            </h1>
+            <p class="wizard-subtitle" *ngIf="serviceCode">
+              Service Code: {{ serviceCode }} | Service ID: {{ serviceId }}
+              <span *ngIf="isEditMode && existingApplication">
+                | Application #{{ existingApplication.serial_number }}
+              </span>
+            </p>
           </div>
         </div>
 
@@ -61,6 +70,10 @@ import {
           <div class="progress-text">
             Step {{ wizardState.currentStep + 1 }} of {{ wizardState.totalSteps }}
             <span class="progress-percentage">({{ getProgressPercentage().toFixed(0) }}%)</span>
+            <span *ngIf="isEditMode" class="edit-mode-indicator">
+              <mat-icon class="edit-icon">edit</mat-icon>
+              Edit Mode
+            </span>
           </div>
         </div>
       </div>
@@ -68,7 +81,9 @@ import {
       <!-- Loading State -->
       <div class="loading-container" *ngIf="isLoading">
         <mat-spinner diameter="60"></mat-spinner>
-        <p class="loading-text">Loading service flow...</p>
+        <p class="loading-text">
+          {{ isEditMode ? 'Loading application data...' : 'Loading service flow...' }}
+        </p>
       </div>
 
       <!-- Error State -->
@@ -77,10 +92,10 @@ import {
           <div class="error-content">
             <mat-icon class="error-icon">error_outline</mat-icon>
             <div class="error-details">
-              <h3>Unable to Load Service Flow</h3>
+              <h3>{{ isEditMode ? 'Unable to Load Application' : 'Unable to Load Service Flow' }}</h3>
               <p>{{ error }}</p>
               <div class="error-actions">
-                <button mat-raised-button color="primary" (click)="loadServiceFlow()">
+                <button mat-raised-button color="primary" (click)="loadData()">
                   <mat-icon>refresh</mat-icon>
                   Try Again
                 </button>
@@ -127,6 +142,21 @@ import {
                 </mat-card>
               </div>
 
+              <!-- Edit Mode Notice -->
+              <div class="edit-notice" *ngIf="isEditMode">
+                <mat-card class="notice-card">
+                  <mat-card-content>
+                    <div class="notice-content">
+                      <mat-icon class="notice-icon">edit</mat-icon>
+                      <div class="notice-text">
+                        <strong>Edit Mode:</strong> You are editing an existing application.
+                        Make your changes and click "Update Application" to save.
+                      </div>
+                    </div>
+                  </mat-card-content>
+                </mat-card>
+              </div>
+
               <!-- Dynamic Form with Complete Form Data -->
               <div class="form-container">
                 <app-dynamic-form
@@ -144,6 +174,8 @@ import {
                   <pre>{{ wizardState.formData | json }}</pre>
                   <h5>Current Step Fields:</h5>
                   <pre>{{ getCurrentStepFieldNames() | json }}</pre>
+                  <h5>Edit Mode Info:</h5>
+                  <pre>{{ getEditModeDebugInfo() | json }}</pre>
                   <button mat-button (click)="debugVisibilityConditions()">Debug Visibility</button>
                   <button mat-button (click)="debugMode = false">Hide Debug</button>
                 </div>
@@ -181,7 +213,7 @@ import {
                         [disabled]="isSubmitting"
                         class="draft-btn">
                   <mat-icon>save</mat-icon>
-                  Save Draft
+                  {{ isEditMode ? 'Save Changes' : 'Save Draft' }}
                 </button>
 
                 <button mat-button
@@ -198,9 +230,9 @@ import {
                         class="next-btn">
                   <mat-spinner diameter="20" *ngIf="isSubmitting && isLastStep()"></mat-spinner>
                   <mat-icon *ngIf="!isSubmitting">
-                    {{ isLastStep() ? 'send' : 'navigate_next' }}
+                    {{ isLastStep() ? (isEditMode ? 'update' : 'send') : 'navigate_next' }}
                   </mat-icon>
-                  {{ isLastStep() ? 'Submit Application' : 'Next' }}
+                  {{ isLastStep() ? (isEditMode ? 'Update Application' : 'Submit Application') : 'Next' }}
                 </button>
               </div>
             </div>
@@ -274,11 +306,30 @@ import {
       font-size: 14px;
       color: #666;
       font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .progress-percentage {
       color: #3498db;
       font-weight: 600;
+    }
+
+    .edit-mode-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      color: #f39c12;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .edit-icon {
+      font-size: 16px !important;
+      width: 16px;
+      height: 16px;
     }
 
     .loading-container {
@@ -358,6 +409,31 @@ import {
     .description-card {
       margin-bottom: 24px;
       border-left: 4px solid #3498db;
+    }
+
+    .edit-notice {
+      margin-bottom: 24px;
+    }
+
+    .notice-card {
+      border-left: 4px solid #f39c12;
+      background: #fff9f0;
+    }
+
+    .notice-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .notice-icon {
+      color: #f39c12;
+      font-size: 24px;
+    }
+
+    .notice-text {
+      color: #d68910;
+      line-height: 1.5;
     }
 
     .form-container {
@@ -464,7 +540,7 @@ import {
       background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
       color: white;
       font-weight: 600;
-      min-width: 160px;
+      min-width: 180px;
       height: 44px;
     }
 
@@ -493,6 +569,16 @@ import {
         font-size: 24px;
       }
 
+      .progress-text {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+
+      .edit-mode-indicator {
+        margin-left: 0;
+      }
+
       .step-actions {
         flex-direction: column;
         gap: 8px;
@@ -514,6 +600,11 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
   serviceId: number = 0;
   serviceFlowSteps: ServiceFlowStep[] = [];
   stepForms: FormGroup[] = [];
+
+  // Edit mode properties
+  isEditMode = false;
+  continueApplicationId: number | null = null;
+  existingApplication: Application | null = null;
 
   isLoading = false;
   isSubmitting = false;
@@ -544,16 +635,21 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     console.log('🚀 ServiceWizard: Initializing...');
 
     this.route.params.pipe(takeUntil(this.destroy$)).subscribe(params => {
-      this.serviceCode = params['serviceCode'];
-      this.serviceId = parseInt(params['serviceId']);
+      this.serviceCode = params['serviceCode']; // Service code for API calls (e.g., "01")
+      this.serviceId = parseInt(params['serviceId']); // Service ID for case submission
 
-      console.log('📋 ServiceWizard: Route params - Code:', this.serviceCode, 'ID:', this.serviceId);
+      console.log('📋 ServiceWizard: Route params - Service Code:', this.serviceCode, 'Service ID:', this.serviceId);
+      console.log('🔍 ServiceWizard: Service code will be used for service flow API, Service ID for case submission');
+    });
 
-      if (this.serviceCode && this.serviceId) {
-        this.loadServiceFlow();
-      } else {
-        this.error = 'Invalid service parameters';
-      }
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(queryParams => {
+      this.continueApplicationId = queryParams['continueId'] ? parseInt(queryParams['continueId']) : null;
+      this.isEditMode = queryParams['mode'] === 'continue' && this.continueApplicationId !== null;
+
+      console.log('🔄 ServiceWizard: Query params - Edit mode:', this.isEditMode, 'Continue ID:', this.continueApplicationId);
+
+      // Load data based on mode
+      this.loadData();
     });
   }
 
@@ -562,9 +658,41 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  loadServiceFlow(): void {
+  loadData(): void {
+    if (this.isEditMode && this.continueApplicationId) {
+      this.loadExistingApplicationAndServiceFlow();
+    } else {
+      this.loadServiceFlow();
+    }
+  }
+
+  loadExistingApplicationAndServiceFlow(): void {
+    console.log('🔄 ServiceWizard: Loading existing application and service flow...');
     this.isLoading = true;
     this.error = null;
+
+    // First load the existing application
+    this.apiService.getCase(this.continueApplicationId!).subscribe({
+      next: (application: Application) => {
+        console.log('✅ ServiceWizard: Existing application loaded:', application);
+        this.existingApplication = application;
+
+        // Now load the service flow
+        this.loadServiceFlow();
+      },
+      error: (error: any) => {
+        console.error('❌ ServiceWizard: Error loading existing application:', error);
+        this.error = error.message || 'Failed to load existing application';
+        this.isLoading = false;
+      }
+    });
+  }
+
+  loadServiceFlow(): void {
+    if (!this.isEditMode) {
+      this.isLoading = true;
+      this.error = null;
+    }
 
     console.log('🌐 ServiceWizard: Loading service flow for code:', this.serviceCode);
 
@@ -601,6 +729,11 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     // Initialize form data with default values for ALL fields across ALL steps
     this.initializeCompleteFormData();
 
+    // If in edit mode, populate with existing application data
+    if (this.isEditMode && this.existingApplication) {
+      this.populateFormWithExistingData();
+    }
+
     // Create form controls for each step
     this.stepForms = [];
     this.serviceFlowSteps.forEach((step, index) => {
@@ -612,7 +745,7 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     this.validateCurrentStep();
   }
 
-  // NEW: Initialize form data with all fields from all steps
+  // Initialize form data with all fields from all steps
   initializeCompleteFormData(): void {
     console.log('🏗️ ServiceWizard: Initializing complete form data...');
 
@@ -633,13 +766,29 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     console.log('✅ ServiceWizard: Complete form data initialized:', this.wizardState.formData);
   }
 
+  // Populate form with existing application data
+  populateFormWithExistingData(): void {
+    if (!this.existingApplication?.case_data) return;
+
+    console.log('📝 ServiceWizard: Populating form with existing data:', this.existingApplication.case_data);
+
+    // Merge existing data with initialized form data
+    Object.keys(this.existingApplication.case_data).forEach(fieldName => {
+      if (fieldName !== 'uploaded_files') { // Skip files for now
+        this.wizardState.formData[fieldName] = this.existingApplication!.case_data[fieldName];
+      }
+    });
+
+    console.log('✅ ServiceWizard: Form populated with existing data:', this.wizardState.formData);
+  }
+
   createStepForm(step: ServiceFlowStep): FormGroup {
     const formControls: { [key: string]: any } = {};
 
     step.categories.forEach(category => {
       category.fields.forEach(field => {
-        const defaultValue = this.getDefaultValue(field);
-        formControls[field.name] = [defaultValue];
+        const currentValue = this.wizardState.formData[field.name];
+        formControls[field.name] = [currentValue];
       });
     });
 
@@ -685,13 +834,17 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     return this.wizardState.currentStep === this.wizardState.totalSteps - 1;
   }
 
+  getWizardTitle(): string {
+    return this.currentStep?.name ? ` - ${this.currentStep.name}` : '';
+  }
+
   formatDescription(description: string): string {
     return description
       .replace(/\r?\n/g, '<br>')
       .replace(/\r/g, '<br>');
   }
 
-  // UPDATED: Ensure form data is merged properly across all steps
+  // Form data handling - ensure form data is merged properly across all steps
   onFormChange(formData: any): void {
     console.log('📝 ServiceWizard: Form data changed:', formData);
 
@@ -719,9 +872,23 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     return fieldNames;
   }
 
+  getEditModeDebugInfo(): any {
+    return {
+      isEditMode: this.isEditMode,
+      continueApplicationId: this.continueApplicationId,
+      existingApplication: this.existingApplication ? {
+        id: this.existingApplication.id,
+        serial_number: this.existingApplication.serial_number,
+        status: this.existingApplication.status,
+        case_type: this.existingApplication.case_type
+      } : null
+    };
+  }
+
   debugVisibilityConditions(): void {
     console.log('=== DEBUGGING VISIBILITY CONDITIONS ===');
     console.log('Complete wizard form data:', this.wizardState.formData);
+    console.log('Edit mode info:', this.getEditModeDebugInfo());
 
     if (!this.currentStep) return;
 
@@ -737,7 +904,6 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
 
           field.visibility_conditions.forEach((condition, condIndex) => {
             console.log(`Evaluating condition ${condIndex}:`, condition);
-            // You can import and use debugEvaluateVisibilityCondition here if needed
           });
         } else {
           console.log(`Field: ${field.name} - No visibility conditions`);
@@ -859,19 +1025,41 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
   }
 
   goBack(): void {
-    console.log('🔙 ServiceWizard: Going back to services');
-    this.router.navigate(['/services']);
+    console.log('🔙 ServiceWizard: Going back');
+    if (this.isEditMode) {
+      this.router.navigate(['/home']); // Go back to applications list when editing
+    } else {
+      this.router.navigate(['/services']); // Go back to services when creating new
+    }
   }
 
   saveDraft(): void {
     console.log('💾 ServiceWizard: Saving draft...');
-    // TODO: Implement draft saving functionality
-    this.snackBar.open('Draft saved successfully', 'Close', { duration: 3000 });
+
+    if (this.isEditMode) {
+      // In edit mode, save the changes as an update
+      this.updateApplication(false); // false = don't submit, just save
+    } else {
+      // In create mode, create as draft
+      this.snackBar.open('Draft saving not yet implemented for new applications', 'Close', {
+        duration: 3000,
+        panelClass: ['info-snackbar']
+      });
+    }
   }
 
   submitApplication(): void {
     console.log('🚀 ServiceWizard: Starting application submission...');
 
+    if (this.isEditMode) {
+      this.updateApplication(true); // true = submit the application
+    } else {
+      this.createNewApplication();
+    }
+  }
+
+  private createNewApplication(): void {
+    console.log('📝 ServiceWizard: Creating new application...');
     this.isSubmitting = true;
 
     // Collect file types from form fields
@@ -903,6 +1091,47 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
         console.error('❌ ServiceWizard: Case creation failed:', error);
         this.isSubmitting = false;
         this.snackBar.open('Failed to submit application. Please try again.', 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
+      }
+    });
+  }
+
+  private updateApplication(shouldSubmit: boolean = false): void {
+    console.log('🔄 ServiceWizard: Updating application...', { shouldSubmit });
+    this.isSubmitting = true;
+
+    // Collect file types from form fields
+    const fileTypes = this.collectFileTypes();
+
+    const caseData: Partial<CaseSubmission> = {
+      case_data: this.wizardState.formData,
+      file_types: fileTypes
+    };
+
+    console.log('📦 ServiceWizard: Updating case data:', caseData);
+
+    this.apiService.continueApplication(this.continueApplicationId!, caseData).subscribe({
+      next: (response: any) => {
+        console.log('✅ ServiceWizard: Application updated successfully:', response);
+
+        if (shouldSubmit) {
+          // If we should submit after updating, call the submit endpoint
+          this.submitCreatedCase(this.continueApplicationId!);
+        } else {
+          // Just saved as draft
+          this.isSubmitting = false;
+          this.snackBar.open('Changes saved successfully', 'Close', {
+            duration: 3000,
+            panelClass: ['success-snackbar']
+          });
+        }
+      },
+      error: (error: any) => {
+        console.error('❌ ServiceWizard: Application update failed:', error);
+        this.isSubmitting = false;
+        this.snackBar.open('Failed to update application. Please try again.', 'Close', {
           duration: 5000,
           panelClass: ['error-snackbar']
         });
@@ -946,7 +1175,12 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
       error: (error: any) => {
         console.error('❌ ServiceWizard: Case submission failed:', error);
         this.isSubmitting = false;
-        this.snackBar.open('Case was created but submission failed. Please try again.', 'Close', {
+
+        const message = this.isEditMode
+          ? 'Application was updated but submission failed. Please try again.'
+          : 'Case was created but submission failed. Please try again.';
+
+        this.snackBar.open(message, 'Close', {
           duration: 5000,
           panelClass: ['warning-snackbar']
         });
@@ -956,7 +1190,12 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
 
   private handleSubmissionSuccess(): void {
     this.isSubmitting = false;
-    this.snackBar.open('🎉 Application submitted successfully!', 'Close', {
+
+    const message = this.isEditMode
+      ? '🎉 Application updated and submitted successfully!'
+      : '🎉 Application submitted successfully!';
+
+    this.snackBar.open(message, 'Close', {
       duration: 5000,
       panelClass: ['success-snackbar']
     });

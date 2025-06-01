@@ -12,6 +12,8 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
 
 import { ApiService } from '../../core/services/api.service';
 import { Application, ApplicationsResponse, ApplicationStatus, getStatusNumbers } from '../../core/models/interfaces';
@@ -416,7 +418,9 @@ export class HomeComponent implements OnInit {
 
   constructor(
     private router: Router,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit(): void {
@@ -431,17 +435,24 @@ export class HomeComponent implements OnInit {
         this.applications = response.results || [];
         this.updateStats();
         this.isLoading = false;
+        console.log('✅ HomeComponent: Applications loaded:', this.applications.length);
       },
       error: (error: any) => {
-        console.error('Error loading applications:', error);
+        console.error('❌ HomeComponent: Error loading applications:', error);
         this.applications = [];
         this.updateStats();
         this.isLoading = false;
+
+        this.snackBar.open('Failed to load applications. Please try again.', 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
       }
     });
   }
 
   refreshApplications(): void {
+    console.log('🔄 HomeComponent: Refreshing applications');
     this.loadApplications();
   }
 
@@ -466,51 +477,143 @@ export class HomeComponent implements OnInit {
   }
 
   goToServices(): void {
+    console.log('🚀 HomeComponent: Navigating to services');
     this.router.navigate(['/services']);
   }
 
-  // Application actions
-  editApplication(application: Application): void {
-    console.log('Edit application:', application);
-    // Navigate to edit flow or open edit modal
-  }
+  // Application actions implementation
 
+  /**
+   * Navigate to application detail view
+   */
   viewApplication(application: Application): void {
-    console.log('View application:', application);
-    // Navigate to view page or open view modal
+    console.log('👁️ HomeComponent: Viewing application:', application.id);
+    this.router.navigate(['/application', application.id]);
   }
 
-  deleteApplication(application: Application): void {
-    if (confirm(`Are you sure you want to delete this application?`)) {
-      this.apiService.deleteCase(application.id).subscribe({
-        next: () => {
-          this.loadApplications(); // Refresh list
-          console.log('Application deleted successfully');
-        },
-        error: (error: any) => {
-          console.error('Error deleting application:', error);
-        }
-      });
+  /**
+   * Edit application - same as continue for draft/returned applications
+   */
+  editApplication(application: Application): void {
+    console.log('✏️ HomeComponent: Editing application:', application.id);
+    this.continueApplication(application);
+  }
+
+  /**
+   * Continue application - navigate to service wizard with existing data
+   */
+  continueApplication(application: Application): void {
+    console.log('🔄 HomeComponent: Continuing application:', application.id, 'Case type (service ID):', application.case_type);
+
+    // Get service code from case type (service ID) by looking up the service
+    this.apiService.getServiceCodeFromCaseType(application.case_type).subscribe({
+      next: (serviceCode: string) => {
+        console.log('📋 HomeComponent: Found service code for case type', application.case_type, ':', serviceCode);
+
+        // Navigate to service wizard with continue mode
+        // serviceCode: actual service code (e.g., "01") for API calls
+        // application.case_type: service ID for case submission
+        this.router.navigate(['/service-flow', serviceCode, application.case_type], {
+          queryParams: {
+            continueId: application.id,
+            mode: 'continue'
+          }
+        });
+      },
+      error: (error: any) => {
+        console.error('❌ HomeComponent: Error getting service code for case type', application.case_type, ':', error);
+        this.snackBar.open('Unable to continue application. Could not find service information.', 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
+      }
+    });
+  }
+
+  /**
+   * Resubmit application - same as continue but with different messaging
+   */
+  resubmitApplication(application: Application): void {
+    console.log('🔄 HomeComponent: Resubmitting application:', application.id);
+
+    const confirmed = confirm(
+      `Are you sure you want to resubmit this application?\n\n` +
+      `Application #${application.serial_number}\n` +
+      `You can make changes before resubmitting.`
+    );
+
+    if (confirmed) {
+      this.continueApplication(application);
     }
   }
 
-  continueApplication(application: Application): void {
-    console.log('Continue application:', application);
-    // Navigate to continue the application flow
+  /**
+   * Delete application with confirmation
+   */
+  deleteApplication(application: Application): void {
+    console.log('🗑️ HomeComponent: Deleting application:', application.id);
+
+    const confirmed = confirm(
+      `Are you sure you want to delete this application?\n\n` +
+      `Application #${application.serial_number}\n` +
+      `This action cannot be undone.`
+    );
+
+    if (confirmed) {
+      this.performDeleteApplication(application);
+    }
   }
 
-  resubmitApplication(application: Application): void {
-    console.log('Resubmit application:', application);
-    // Navigate to resubmit flow
+  /**
+   * Actually perform the delete operation
+   */
+  private performDeleteApplication(application: Application): void {
+    this.apiService.deleteCase(application.id).subscribe({
+      next: () => {
+        console.log('✅ HomeComponent: Application deleted successfully');
+
+        this.snackBar.open('Application deleted successfully', 'Close', {
+          duration: 3000,
+          panelClass: ['success-snackbar']
+        });
+
+        // Remove the application from the list immediately for better UX
+        this.applications = this.applications.filter(app => app.id !== application.id);
+        this.updateStats();
+      },
+      error: (error: any) => {
+        console.error('❌ HomeComponent: Error deleting application:', error);
+
+        this.snackBar.open('Failed to delete application. Please try again.', 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
+      }
+    });
   }
 
+  /**
+   * Track application progress
+   */
   trackApplication(application: Application): void {
-    console.log('Track application:', application);
-    // Show tracking information
+    console.log('📊 HomeComponent: Tracking application:', application.id);
+
+    // For now, navigate to the detail view which shows the current status
+    // In the future, this could open a tracking modal or navigate to a dedicated tracking page
+    this.viewApplication(application);
   }
 
+  /**
+   * Download application documents
+   */
   downloadApplication(application: Application): void {
-    console.log('Download application:', application);
-    // Download application documents
+    console.log('💾 HomeComponent: Downloading application:', application.id);
+
+    // This is a placeholder implementation
+    // In a real app, this would generate and download a PDF or ZIP file
+    this.snackBar.open('Download feature not yet implemented', 'Close', {
+      duration: 3000,
+      panelClass: ['info-snackbar']
+    });
   }
 }

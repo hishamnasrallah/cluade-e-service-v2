@@ -1,26 +1,28 @@
 // src/app/app.routes.ts
 import { Routes } from '@angular/router';
-import { AuthGuard } from './core/guards/auth.guard';
+import { AuthGuard, GuestGuard, ConfigGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
-  // Configuration route - accessible without authentication
+  // Configuration route - accessible without authentication but with config guard
   {
     path: 'config',
     loadComponent: () => {
       return import('./features/configuration/configuration.component').then(m => {
         return m.ConfigComponent;
       });
-    }
+    },
+    canActivate: [ConfigGuard]
   },
 
-  // Login route - accessible without authentication
+  // Login route - accessible without authentication but with guest guard
   {
     path: 'login',
     loadComponent: () => {
       return import('./features/auth/login/login.component').then(m => {
         return m.LoginComponent;
       });
-    }
+    },
+    canActivate: [GuestGuard]
   },
 
   // Home route - requires authentication
@@ -46,6 +48,7 @@ export const routes: Routes = [
   },
 
   // Service wizard route - requires authentication
+  // Supports both new applications and continuing existing ones via query params
   {
     path: 'service-flow/:serviceCode/:serviceId',
     loadComponent: () => {
@@ -54,6 +57,14 @@ export const routes: Routes = [
       });
     },
     canActivate: [AuthGuard]
+  },
+
+  // Alternative continue route - more intuitive URL structure
+  // This route redirects to the service-flow route with proper query params
+  {
+    path: 'application/:id/continue',
+    redirectTo: '/application/:id',
+    pathMatch: 'full'
   },
 
   // Application detail route - requires authentication
