@@ -7,8 +7,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 
-import { AuthService } from './services/auth.service';
-import { ConfigService } from './services/config.service';
+import { AuthService } from './core/services/auth.service';
+import { ConfigService } from './core/services/config.service';
 
 @Component({
   selector: 'app-root',
@@ -164,7 +164,7 @@ export class AppComponent implements OnInit {
 
   ngOnInit(): void {
     // Subscribe to authentication status
-    this.authService.isAuthenticated$.subscribe(isAuth => {
+    this.authService.isAuthenticated$.subscribe((isAuth: boolean) => {
       this.isAuthenticated = isAuth;
       this.showConfigButton = isAuth || this.configService.isConfigured();
     });

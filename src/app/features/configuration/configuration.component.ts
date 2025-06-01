@@ -14,7 +14,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { ConfigService } from '../../services/config.service';
+import { ConfigService } from '../../core/services/config.service';
 
 @Component({
   selector: 'app-config',
@@ -514,7 +514,7 @@ export class ConfigComponent implements OnInit {
 
       // Test connection using the config service
       this.configService.testConnection().subscribe({
-        next: (success) => {
+        next: (success: any) => {
           this.connectionStatus = {
             type: 'success',
             icon: 'wifi',
@@ -529,7 +529,7 @@ export class ConfigComponent implements OnInit {
 
           this.isLoading = false;
         },
-        error: (error) => {
+        error: (error: any) => {
           this.connectionStatus = {
             type: 'error',
             icon: 'wifi_off',

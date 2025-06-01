@@ -19,7 +19,7 @@ export class CaseService {
   }
 
   createCase(formData: FormData): Observable<Case> {
-    return this.apiService.postFormData<Case>('/case/cases/', formData);
+    return this.apiService.post<Case>('/case/cases/', formData);
   }
 
   updateCase(id: number, data: any): Observable<Case> {

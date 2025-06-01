@@ -14,14 +14,14 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
-import { ApiService } from '../../../services/api.service';
+import { ApiService } from '../../../core/services/api.service';
 import { DynamicFormComponent } from '../dynamic-form/dynamic-form.component';
 import {
   ServiceFlowResponse,
   ServiceFlowStep,
   CaseSubmission,
   WizardState
-} from '../../../models/interfaces';
+} from '../../../core/models/interfaces';
 
 @Component({
   selector: 'app-service-wizard',
@@ -227,7 +227,7 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
         this.initializeWizard();
         this.isLoading = false;
       },
-      error: (error) => {
+      error: (error: any) => {
         this.error = error.message || 'Failed to load service flow';
         this.isLoading = false;
       }
@@ -341,12 +341,12 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     };
 
     this.apiService.submitCase(caseData).subscribe({
-      next: (response) => {
+      next: (response: any) => {
         this.isSubmitting = false;
         this.snackBar.open('Application submitted successfully!', 'Close', { duration: 5000 });
         this.router.navigate(['/home']);
       },
-      error: (error) => {
+      error: (error: any) => {
         this.isSubmitting = false;
         this.snackBar.open('Failed to submit application. Please try again.', 'Close', { duration: 5000 });
       }

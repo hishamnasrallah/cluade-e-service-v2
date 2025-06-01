@@ -10,8 +10,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 
-import { ApiService } from '../../../services/api.service';
-import { Application } from '../../../models/interfaces';
+import { ApiService } from '../../../core/services/api.service';
+import { Application } from '../../../core/models/interfaces';
 
 @Component({
   selector: 'app-application-detail',
@@ -145,7 +145,7 @@ export class ApplicationDetailComponent implements OnInit {
         this.application = application;
         this.isLoading = false;
       },
-      error: (error) => {
+      error: (error: any) => {
         this.error = error.message || 'Failed to load application';
         this.isLoading = false;
       }

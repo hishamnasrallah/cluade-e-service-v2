@@ -14,8 +14,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { AuthService } from '../../../services/auth.service';
-import { ConfigService } from '../../../services/config.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { ConfigService } from '../../../core/services/config.service';
 
 @Component({
   selector: 'app-login',
@@ -606,7 +606,7 @@ export class LoginComponent implements OnInit {
           this.router.navigate([this.returnUrl]);
           this.isLoading = false;
         },
-        error: (error) => {
+        error: (error: any) => {
           console.error('Login error:', error);
 
           this.loginError = this.getErrorMessage(error);
