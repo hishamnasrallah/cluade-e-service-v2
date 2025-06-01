@@ -269,23 +269,52 @@ export class ApiService {
       formData.append('case_type', caseData.case_type.toString());
     }
 
-    // Add case_data fields
+    // Prepare case_data object (excluding files)
+    const caseDataForJson: any = {};
+    const files: File[] = [];
+    const fileTypes: string[] = [];
+
+    // Process case_data to separate files from other data
     if (caseData.case_data) {
       for (const [key, value] of Object.entries(caseData.case_data)) {
         if (value instanceof File) {
-          formData.append(key, value, value.name);
+          files.push(value);
+          // For file fields, we need to determine the file type based on the field configuration
+          // This should be passed from the dynamic form component
+          fileTypes.push('01'); // Default file type, should be configured properly
         } else if (value !== null && value !== undefined) {
-          formData.append(key, value.toString());
+          caseDataForJson[key] = value;
         }
       }
     }
 
-    // Add file_types if present
+    // Add case_data as JSON string
+    formData.append('case_data', JSON.stringify(caseDataForJson));
+
+    // Add files with proper indexing
+    files.forEach((file, index) => {
+      formData.append(`files[${index}]`, file, file.name);
+    });
+
+    // Add file_types array (this should be provided from the form)
     if (caseData.file_types && Array.isArray(caseData.file_types)) {
       caseData.file_types.forEach((fileType: string, index: number) => {
         formData.append(`file_types[${index}]`, fileType);
       });
+    } else {
+      // Use default file types if not provided
+      fileTypes.forEach((fileType: string, index: number) => {
+        formData.append(`file_types[${index}]`, fileType);
+      });
     }
+
+    console.log('🔄 Submitting form data:', {
+      applicant_type: caseData.applicant_type,
+      case_type: caseData.case_type,
+      case_data: caseDataForJson,
+      files_count: files.length,
+      file_types: caseData.file_types || fileTypes
+    });
 
     const request = method === 'PUT'
       ? this.http.put(url, formData)
@@ -295,7 +324,6 @@ export class ApiService {
       catchError(this.handleError)
     );
   }
-
   /**
    * Check if case data contains files
    */

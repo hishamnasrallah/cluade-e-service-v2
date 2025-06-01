@@ -6,8 +6,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 
-import { ServiceFlowCategory, ServiceFlowField, evaluateVisibilityCondition } from '../../../models/interfaces';
-
+import { ServiceFlowCategory, ServiceFlowField, evaluateVisibilityCondition } from '../../../core/models/interfaces';
 // Import all field components
 import { TextFieldComponent } from './field-components/text-field/text-field.component';
 import { NumberFieldComponent } from './field-components/number-field/number-field.component';

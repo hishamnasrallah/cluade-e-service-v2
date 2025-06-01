@@ -1,6 +1,7 @@
 /* src/app/features/services/dynamic-form/field-components/boolean-field/boolean-field.component.scss */
 .boolean-field {
   margin: 16px 0;
+  width: 100%;
 }
 
 .checkbox-field {
@@ -10,4 +11,46 @@
 .required-indicator {
   color: #f44336;
   margin-left: 4px;
+  font-weight: 600;
+}
+
+/* Material checkbox customization */
+::ng-deep .boolean-field .mat-mdc-checkbox {
+  margin-bottom: 8px;
+}
+
+::ng-deep .boolean-field .mat-mdc-checkbox .mdc-checkbox {
+  padding: 8px;
+}
+
+::ng-deep .boolean-field .mat-mdc-checkbox .mdc-form-field {
+  color: #333;
+  font-size: 16px;
+}
+
+::ng-deep .boolean-field .mat-mdc-checkbox .mdc-checkbox--selected .mdc-checkbox__background {
+  background-color: #3498db;
+  border-color: #3498db;
+}
+
+::ng-deep .boolean-field .mat-mdc-checkbox .mdc-checkbox:hover .mdc-checkbox__background {
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+/* Disabled state */
+::ng-deep .boolean-field .mat-mdc-checkbox.mat-mdc-checkbox-disabled {
+  opacity: 0.6;
+}
+
+::ng-deep .boolean-field .mat-mdc-checkbox.mat-mdc-checkbox-disabled .mdc-form-field {
+  color: #999;
+}
+
+/* Focus styles */
+::ng-deep .boolean-field .mat-mdc-checkbox .mdc-checkbox__background {
+  transition: all 0.2s ease;
+}
+
+::ng-deep .boolean-field .mat-mdc-checkbox:focus-within .mdc-checkbox__background {
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
 }

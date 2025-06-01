@@ -2,7 +2,7 @@ import { Component, Input, Output, EventEmitter, forwardRef, OnInit } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { ServiceFlowField } from '../../../../../models/interfaces';
+import { ServiceFlowField } from '../../../../../core/models/interfaces';
 
 @Component({
   selector: 'app-boolean-field',

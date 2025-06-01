@@ -199,7 +199,8 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private apiService: ApiService,
     private snackBar: MatSnackBar
-  ) {}
+  ) {
+  }
 
   ngOnInit(): void {
     this.route.params.pipe(takeUntil(this.destroy$)).subscribe(params => {
@@ -327,29 +328,101 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
   }
 
   saveDraft(): void {
-    this.snackBar.open('Draft saved successfully', 'Close', { duration: 3000 });
+    this.snackBar.open('Draft saved successfully', 'Close', {duration: 3000});
   }
 
   submitApplication(): void {
     this.isSubmitting = true;
 
+    // Collect file types from form fields
+    const fileTypes = this.collectFileTypes();
+
     const caseData: CaseSubmission = {
       applicant_type: 13,
       case_type: this.serviceId,
       case_data: this.wizardState.formData,
-      file_types: []
+      file_types: fileTypes
     };
 
+    console.log('🚀 Submitting case data:', caseData);
+
+    // First create the case
     this.apiService.submitCase(caseData).subscribe({
       next: (response: any) => {
-        this.isSubmitting = false;
-        this.snackBar.open('Application submitted successfully!', 'Close', { duration: 5000 });
-        this.router.navigate(['/home']);
+        console.log('✅ Case created successfully:', response);
+
+        // After case creation, submit it using the ID
+        if (response.id) {
+          this.submitCreatedCase(response.id);
+        } else {
+          // If no ID returned, just show success message
+          this.handleSubmissionSuccess();
+        }
       },
       error: (error: any) => {
+        console.error('❌ Case creation failed:', error);
         this.isSubmitting = false;
-        this.snackBar.open('Failed to submit application. Please try again.', 'Close', { duration: 5000 });
+        this.snackBar.open('Failed to submit application. Please try again.', 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
       }
     });
+  }
+
+  private collectFileTypes(): string[] {
+    const fileTypes: string[] = [];
+
+    // Iterate through all service flow steps to find file fields
+    this.serviceFlowSteps.forEach(step => {
+      step.categories.forEach(category => {
+        category.fields.forEach(field => {
+          if (field.field_type === 'file' && this.wizardState.formData[field.name]) {
+            // If field has allowed_lookups, use the first one's code
+            if (field.allowed_lookups && field.allowed_lookups.length > 0) {
+              fileTypes.push(field.allowed_lookups[0].code);
+            } else {
+              // Default file type if no specific type is configured
+              fileTypes.push('01');
+            }
+          }
+        });
+      });
+    });
+
+    return fileTypes;
+  }
+
+  private submitCreatedCase(caseId: number): void {
+    console.log('🔄 Submitting case with ID:', caseId);
+
+    // Make PUT request to submit the case
+    this.apiService.put(`/case/cases/submit/${caseId}/`, {}).subscribe({
+      next: (response: any) => {
+        console.log('✅ Case submitted successfully:', response);
+        this.handleSubmissionSuccess();
+      },
+      error: (error: any) => {
+        console.error('❌ Case submission failed:', error);
+        this.isSubmitting = false;
+        this.snackBar.open('Case was created but submission failed. Please try again.', 'Close', {
+          duration: 5000,
+          panelClass: ['warning-snackbar']
+        });
+      }
+    });
+  }
+
+  private handleSubmissionSuccess(): void {
+    this.isSubmitting = false;
+    this.snackBar.open('🎉 Application submitted successfully!', 'Close', {
+      duration: 5000,
+      panelClass: ['success-snackbar']
+    });
+
+    // Navigate back to home with a small delay to show the success message
+    setTimeout(() => {
+      this.router.navigate(['/home']);
+    }, 1500);
   }
 }

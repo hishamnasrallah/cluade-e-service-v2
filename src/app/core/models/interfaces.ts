@@ -125,10 +125,24 @@ export interface LookupResponse {
 // Application models
 export interface Application {
   id: number;
-  title: string;
-  status: 'draft' | 'returned' | 'submitted' | 'completed';
+  applicant: number;
+  applicant_type: number;
+  case_type: number;
+  status: number; // Numeric status from API (20=draft, 11=submitted, 21=completed, 44=returned)
+  sub_status: number | null;
+  assigned_group: number | null;
+  assigned_emp: number | null;
+  current_approval_step: number;
+  last_action: number | null;
+  created_by: number;
+  updated_by: number;
+  case_data: { [key: string]: any };
+  serial_number: string;
   created_at: string;
   updated_at: string;
+
+  // Additional computed properties
+  title?: string;
   service_name?: string;
 }
 
@@ -198,7 +212,7 @@ export type FieldType =
   | 'decimal'
   | 'percentage';
 
-export type ApplicationStatus = 'draft' | 'returned' | 'submitted' | 'completed';
+export type ApplicationStatus = 'draft' | 'returned' | 'submitted' | 'completed' | 'all';
 
 export type ConditionOperation =
   | '='

@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { ServiceFlowField } from '../../../../../models/interfaces';
+import { ServiceFlowField } from '../../../../../core/models/interfaces';
 
 @Component({
   selector: 'app-file-field',

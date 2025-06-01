@@ -11,7 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 
-import { Application, ApplicationStatus } from '../../../models/interfaces';
+import { Application, ApplicationStatus } from '../../../core/models/interfaces';
 
 @Component({
   selector: 'app-applications-list',

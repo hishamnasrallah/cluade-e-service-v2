@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { ServiceFlowField } from '../../../../../models/interfaces';
+import { ServiceFlowField } from '../../../../../core/models/interfaces';
 
 @Component({
   selector: 'app-percentage-field',

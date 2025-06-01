@@ -5,7 +5,7 @@ import { FormControl, ReactiveFormsModule, ControlValueAccessor, NG_VALUE_ACCESS
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
-import { ServiceFlowField } from '../../../../../models/interfaces';
+import { ServiceFlowField } from '../../../../../core/models/interfaces';
 
 @Component({
   selector: 'app-text-field',
