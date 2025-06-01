@@ -1,4 +1,4 @@
-// src/app/services/api.service.ts
+// src/app/core/services/api.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
@@ -35,9 +35,15 @@ export class ApiService {
     const url = this.buildUrl('/lookups/');
     const params = new HttpParams().set('name', 'Service');
 
+    console.log('🌐 API: Getting services from:', `${url}?name=Service`);
+
     return this.http.get<ServicesResponse>(url, { params })
       .pipe(
         retry(2),
+        map(response => {
+          console.log('✅ API: Services loaded:', response.count, 'services');
+          return response;
+        }),
         catchError(this.handleError)
       );
   }
@@ -54,13 +60,13 @@ export class ApiService {
     const serviceParam = `["${serviceCode}"]`;
     const params = new HttpParams().set('service', serviceParam);
 
-    console.log('🔄 Calling service flow API with URL:', `${url}?service=${serviceParam}`);
+    console.log('🔄 API: Calling service flow API with URL:', `${url}?service=${serviceParam}`);
 
     return this.http.get<ServiceFlowResponse>(url, { params })
       .pipe(
         retry(2),
         map(response => {
-          console.log('✅ Service flow API response:', response);
+          console.log('✅ API: Service flow loaded:', response);
           // Sort service flow steps by sequence_number
           if (response.service_flow) {
             response.service_flow.sort((a, b) =>
@@ -75,15 +81,25 @@ export class ApiService {
 
   /**
    * Get lookup options by parent lookup ID
+   * This is the core method for choice fields
    */
   getLookupOptions(parentLookupId: number): Observable<LookupResponse> {
     const url = this.buildUrl('/lookups/');
     const params = new HttpParams().set('parent_lookup', parentLookupId.toString());
 
+    console.log('🔍 API: Getting lookup options for parent:', parentLookupId, 'URL:', `${url}?parent_lookup=${parentLookupId}`);
+
     return this.http.get<LookupResponse>(url, { params })
       .pipe(
         retry(2),
-        catchError(this.handleError)
+        map(response => {
+          console.log('✅ API: Lookup options loaded:', response.count, 'options for parent', parentLookupId);
+          return response;
+        }),
+        catchError((error) => {
+          console.error('❌ API: Error loading lookup options for parent', parentLookupId, ':', error);
+          return this.handleError(error);
+        })
       );
   }
 
@@ -94,9 +110,15 @@ export class ApiService {
     const url = this.buildUrl('/lookups/');
     const params = new HttpParams().set('parent_lookup__name', parentLookupName);
 
+    console.log('🔍 API: Getting lookup options by name:', parentLookupName);
+
     return this.http.get<LookupResponse>(url, { params })
       .pipe(
         retry(2),
+        map(response => {
+          console.log('✅ API: Lookup options by name loaded:', response.count, 'options');
+          return response;
+        }),
         catchError(this.handleError)
       );
   }
@@ -112,9 +134,15 @@ export class ApiService {
       params = params.set('status', status);
     }
 
+    console.log('📋 API: Getting applications:', status ? `with status ${status}` : 'all');
+
     return this.http.get<ApplicationsResponse>(url, { params })
       .pipe(
         retry(2),
+        map(response => {
+          console.log('✅ API: Applications loaded:', response.count, 'applications');
+          return response;
+        }),
         catchError(this.handleError)
       );
   }
@@ -126,14 +154,37 @@ export class ApiService {
   submitCase(caseData: CaseSubmission): Observable<any> {
     const url = this.buildUrl('/case/cases/');
 
+    console.log('📤 API: Submitting case:', caseData);
+
     // Check if we have files to upload
     const hasFiles = this.hasFileData(caseData.case_data);
 
     if (hasFiles) {
+      console.log('📎 API: Case has files, using FormData submission');
       return this.submitCaseWithFiles(url, caseData);
     } else {
+      console.log('📄 API: Case has no files, using JSON submission');
       return this.submitCaseAsJson(url, caseData);
     }
+  }
+
+  /**
+   * Submit the created case (final submission step)
+   * @param caseId - The ID of the created case
+   */
+  submitCreatedCase(caseId: number): Observable<any> {
+    const url = this.buildUrl(`/case/cases/submit/${caseId}/`);
+
+    console.log('🚀 API: Submitting created case:', caseId);
+
+    return this.http.put(url, {}, { headers: this.DEFAULT_HEADERS })
+      .pipe(
+        map(response => {
+          console.log('✅ API: Case submitted successfully:', response);
+          return response;
+        }),
+        catchError(this.handleError)
+      );
   }
 
   /**
@@ -142,6 +193,8 @@ export class ApiService {
   updateCase(caseId: number, caseData: Partial<CaseSubmission>): Observable<any> {
     const url = this.buildUrl(`/case/cases/${caseId}/`);
 
+    console.log('🔄 API: Updating case:', caseId, caseData);
+
     const hasFiles = this.hasFileData(caseData.case_data || {});
 
     if (hasFiles) {
@@ -149,6 +202,10 @@ export class ApiService {
     } else {
       return this.http.put(url, caseData, { headers: this.DEFAULT_HEADERS })
         .pipe(
+          map(response => {
+            console.log('✅ API: Case updated successfully:', response);
+            return response;
+          }),
           catchError(this.handleError)
         );
     }
@@ -160,9 +217,15 @@ export class ApiService {
   getCase(caseId: number): Observable<any> {
     const url = this.buildUrl(`/case/cases/${caseId}/`);
 
+    console.log('🔍 API: Getting case:', caseId);
+
     return this.http.get(url)
       .pipe(
         retry(2),
+        map(response => {
+          console.log('✅ API: Case loaded:', response);
+          return response;
+        }),
         catchError(this.handleError)
       );
   }
@@ -171,10 +234,16 @@ export class ApiService {
    * Delete a case/application
    */
   deleteCase(caseId: number): Observable<any> {
-    const url = this.buildUrl(`/case/cases/${caseId}/`);
+    const url = this.buildUrl(`/case/api/cases/${caseId}/`);
+
+    console.log('🗑️ API: Deleting case:', caseId);
 
     return this.http.delete(url)
       .pipe(
+        map(response => {
+          console.log('✅ API: Case deleted successfully');
+          return response;
+        }),
         catchError(this.handleError)
       );
   }
@@ -187,8 +256,14 @@ export class ApiService {
     const formData = new FormData();
     formData.append(fieldName, file, file.name);
 
+    console.log('📎 API: Uploading file:', file.name, 'for field:', fieldName);
+
     return this.http.post(url, formData)
       .pipe(
+        map(response => {
+          console.log('✅ API: File uploaded successfully:', response);
+          return response;
+        }),
         catchError(this.handleError)
       );
   }
@@ -251,6 +326,10 @@ export class ApiService {
       : this.http.post(url, caseData, { headers: this.DEFAULT_HEADERS });
 
     return request.pipe(
+      map(response => {
+        console.log('✅ API: Case submitted (JSON):', response);
+        return response;
+      }),
       catchError(this.handleError)
     );
   }
@@ -308,7 +387,7 @@ export class ApiService {
       });
     }
 
-    console.log('🔄 Submitting form data:', {
+    console.log('🔄 API: Submitting form data:', {
       applicant_type: caseData.applicant_type,
       case_type: caseData.case_type,
       case_data: caseDataForJson,
@@ -321,14 +400,21 @@ export class ApiService {
       : this.http.post(url, formData);
 
     return request.pipe(
+      map(response => {
+        console.log('✅ API: Case submitted (FormData):', response);
+        return response;
+      }),
       catchError(this.handleError)
     );
   }
+
   /**
    * Check if case data contains files
    */
   private hasFileData(caseData: { [key: string]: any }): boolean {
-    return Object.values(caseData || {}).some(value => value instanceof File);
+    const hasFiles = Object.values(caseData || {}).some(value => value instanceof File);
+    console.log('📎 API: Case has files:', hasFiles);
+    return hasFiles;
   }
 
   /**
@@ -351,7 +437,7 @@ export class ApiService {
    * Handle HTTP errors
    */
   private handleError = (error: any): Observable<never> => {
-    console.error('API Error:', error);
+    console.error('❌ API Error:', error);
 
     let errorMessage = 'An unexpected error occurred';
 
@@ -366,6 +452,9 @@ export class ApiService {
           break;
         case 400:
           errorMessage = 'Bad request. Please check your input.';
+          if (error.error && error.error.detail) {
+            errorMessage += ` Details: ${error.error.detail}`;
+          }
           break;
         case 401:
           errorMessage = 'Unauthorized. Please login again.';
@@ -382,6 +471,11 @@ export class ApiService {
         default:
           errorMessage = `Error ${error.status}: ${error.statusText}`;
       }
+    }
+
+    // Log additional error details for debugging
+    if (error.error) {
+      console.error('Error details:', error.error);
     }
 
     return throwError(() => new Error(errorMessage));

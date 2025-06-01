@@ -30,13 +30,43 @@ export interface ServicesResponse {
   results: Service[];
 }
 
-// Service flow models
+// Lookup models - Enhanced for better choice field support
+export interface LookupOption {
+  id: number;
+  name: string;
+  name_ara: string | null;
+  code: string;
+  icon: string | null;
+  parent_lookup?: number;
+  type?: number;
+  active_ind?: boolean;
+}
+
+export interface LookupResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: LookupOption[];
+}
+
+// Visibility condition models
+export interface ConditionRule {
+  field: string;
+  operation: string;
+  value: any;
+}
+
+export interface VisibilityCondition {
+  condition_logic: ConditionRule[];
+}
+
+// Service flow field models - Enhanced with better typing
 export interface ServiceFlowField {
   name: string;
   field_id: number;
   display_name: string;
   display_name_ara: string | null;
-  field_type: string;
+  field_type: 'text' | 'number' | 'boolean' | 'choice' | 'file' | 'decimal' | 'percentage';
   mandatory: boolean;
   lookup: number | null;
   allowed_lookups: LookupOption[];
@@ -94,32 +124,6 @@ export interface ServiceFlowStep {
 
 export interface ServiceFlowResponse {
   service_flow: ServiceFlowStep[];
-}
-
-// Visibility condition models
-export interface ConditionRule {
-  field: string;
-  operation: string;
-  value: any;
-}
-
-export interface VisibilityCondition {
-  condition_logic: ConditionRule[];
-}
-
-// Lookup models
-export interface LookupOption {
-  name: string;
-  id: number;
-  code: string;
-  icon: string | null;
-}
-
-export interface LookupResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: LookupOption[];
 }
 
 // Application models - Fixed to use numeric status from API
@@ -324,4 +328,139 @@ export function evaluateConditionRule(
     default:
       return true;
   }
+}
+
+// Choice field specific helper functions
+export function formatChoiceValue(value: any, field: ServiceFlowField): any {
+  if (field.max_selections === 1) {
+    // Single selection - return the value directly
+    return Array.isArray(value) ? value[0] || null : value;
+  } else {
+    // Multiple selection - ensure it's an array
+    return Array.isArray(value) ? value : (value ? [value] : []);
+  }
+}
+
+export function validateChoiceField(
+  value: any,
+  field: ServiceFlowField
+): { isValid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  let isValid = true;
+  const fieldName = field.display_name || field.name;
+
+  // Check if field is required
+  if (field.mandatory) {
+    if (!value || (Array.isArray(value) && value.length === 0)) {
+      errors.push(`${fieldName} is required`);
+      isValid = false;
+    }
+  }
+
+  // Check selection constraints for multiple choice fields
+  if (value && field.max_selections !== 1) {
+    const selections = Array.isArray(value) ? value : [value];
+
+    if (field.min_selections && selections.length < field.min_selections) {
+      errors.push(`${fieldName} requires at least ${field.min_selections} selections`);
+      isValid = false;
+    }
+
+    if (field.max_selections && selections.length > field.max_selections) {
+      errors.push(`${fieldName} allows at most ${field.max_selections} selections`);
+      isValid = false;
+    }
+  }
+
+  return { isValid, errors };
+}
+
+// Lookup helper functions
+export function shouldFetchLookupOptions(field: ServiceFlowField): boolean {
+  // Should fetch from API if field has a lookup ID
+  return !!(field.lookup && field.lookup > 0);
+}
+
+export function hasStaticLookupOptions(field: ServiceFlowField): boolean {
+  // Has static options if allowed_lookups is provided without a lookup ID
+  return !!(field.allowed_lookups && field.allowed_lookups.length > 0 && !field.lookup);
+}
+
+export function filterLookupOptions(
+  allOptions: LookupOption[],
+  allowedOptions: LookupOption[]
+): LookupOption[] {
+  if (!allowedOptions || allowedOptions.length === 0) {
+    return allOptions;
+  }
+
+  const allowedIds = allowedOptions.map(opt => opt.id);
+  return allOptions.filter(opt => allowedIds.includes(opt.id));
+}
+
+// Form data processing helper functions
+export function processFormDataForSubmission(
+  formData: { [key: string]: any },
+  fields: ServiceFlowField[]
+): { [key: string]: any } {
+  const processed: { [key: string]: any } = { ...formData };
+
+  fields.forEach(field => {
+    const value = processed[field.name];
+
+    if (value !== undefined && value !== null) {
+      switch (field.field_type) {
+        case 'choice':
+          processed[field.name] = formatChoiceValue(value, field);
+          break;
+        case 'number':
+        case 'decimal':
+        case 'percentage':
+          if (typeof value === 'string' && value.trim() !== '') {
+            processed[field.name] = Number(value);
+          }
+          break;
+        case 'boolean':
+          processed[field.name] = Boolean(value);
+          break;
+        case 'text':
+          if (typeof value === 'string') {
+            processed[field.name] = value.trim();
+          }
+          break;
+      }
+    }
+  });
+
+  return processed;
+}
+
+// File handling helper functions
+export function extractFileTypes(
+  formData: { [key: string]: any },
+  fields: ServiceFlowField[]
+): string[] {
+  const fileTypes: string[] = [];
+
+  fields.forEach(field => {
+    if (field.field_type === 'file' && formData[field.name]) {
+      // If field has allowed_lookups, use the first one's code
+      if (field.allowed_lookups && field.allowed_lookups.length > 0) {
+        fileTypes.push(field.allowed_lookups[0].code);
+      } else {
+        // Default file type if no specific type is configured
+        fileTypes.push('01');
+      }
+    }
+  });
+
+  return fileTypes;
+}
+
+export function hasFileFields(fields: ServiceFlowField[]): boolean {
+  return fields.some(field => field.field_type === 'file');
+}
+
+export function getFileFields(fields: ServiceFlowField[]): ServiceFlowField[] {
+  return fields.filter(field => field.field_type === 'file');
 }

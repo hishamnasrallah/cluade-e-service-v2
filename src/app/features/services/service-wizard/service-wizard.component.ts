@@ -52,7 +52,7 @@ import {
         </div>
 
         <!-- Progress Bar -->
-        <div class="progress-section">
+        <div class="progress-section" *ngIf="!isLoading && visibleSteps.length > 0">
           <mat-progress-bar
             mode="determinate"
             [value]="getProgressPercentage()"
@@ -60,6 +60,7 @@ import {
           </mat-progress-bar>
           <div class="progress-text">
             Step {{ wizardState.currentStep + 1 }} of {{ wizardState.totalSteps }}
+            <span class="progress-percentage">({{ getProgressPercentage().toFixed(0) }}%)</span>
           </div>
         </div>
       </div>
@@ -127,11 +128,28 @@ import {
               </div>
 
               <!-- Dynamic Form -->
-              <app-dynamic-form
-                [categories]="step.categories"
-                [formData]="wizardState.formData"
-                (formChange)="onFormChange($event)">
-              </app-dynamic-form>
+              <div class="form-container">
+                <app-dynamic-form
+                  [categories]="step.categories"
+                  [formData]="wizardState.formData"
+                  (formChange)="onFormChange($event)">
+                </app-dynamic-form>
+              </div>
+
+              <!-- Form Validation Messages -->
+              <div class="validation-messages" *ngIf="currentStepValidation && !currentStepValidation.isValid">
+                <mat-card class="validation-card">
+                  <mat-card-content>
+                    <div class="validation-header">
+                      <mat-icon class="warning-icon">warning</mat-icon>
+                      <span>Please fix the following issues:</span>
+                    </div>
+                    <ul class="validation-list">
+                      <li *ngFor="let error of currentStepValidation.errors">{{ error }}</li>
+                    </ul>
+                  </mat-card-content>
+                </mat-card>
+              </div>
 
               <!-- Step Actions -->
               <div class="step-actions">
@@ -156,7 +174,7 @@ import {
                 <button mat-raised-button
                         color="primary"
                         (click)="nextStep()"
-                        [disabled]="isSubmitting"
+                        [disabled]="isSubmitting || (currentStepValidation && !currentStepValidation.isValid)"
                         class="next-btn">
                   <mat-spinner diameter="20" *ngIf="isSubmitting && isLastStep()"></mat-spinner>
                   <mat-icon *ngIf="!isSubmitting">
@@ -171,7 +189,267 @@ import {
       </div>
     </div>
   `,
-  styleUrls: ['./service-wizard.component.scss']
+  styles: [`
+    .service-wizard-container {
+      padding: 24px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .wizard-header {
+      margin-bottom: 32px;
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .back-btn {
+      background: #f8f9fa;
+      color: #6c757d;
+      width: 48px;
+      height: 48px;
+    }
+
+    .back-btn:hover {
+      background: #e9ecef;
+      color: #495057;
+    }
+
+    .header-info {
+      flex: 1;
+    }
+
+    .wizard-title {
+      font-size: 28px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin: 0;
+      line-height: 1.2;
+    }
+
+    .wizard-subtitle {
+      font-size: 16px;
+      color: #7f8c8d;
+      margin: 4px 0 0 0;
+    }
+
+    .progress-section {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .main-progress {
+      height: 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+
+    .progress-text {
+      font-size: 14px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    .progress-percentage {
+      color: #3498db;
+      font-weight: 600;
+    }
+
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      gap: 16px;
+    }
+
+    .loading-text {
+      color: #6c757d;
+      font-size: 16px;
+      margin: 0;
+    }
+
+    .error-card {
+      margin: 40px auto;
+      max-width: 600px;
+      border-radius: 16px;
+    }
+
+    .error-content {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      text-align: left;
+    }
+
+    .error-icon {
+      font-size: 48px;
+      color: #e74c3c;
+      flex-shrink: 0;
+    }
+
+    .error-details h3 {
+      margin: 0 0 8px 0;
+      color: #2c3e50;
+      font-size: 20px;
+    }
+
+    .error-details p {
+      margin: 0 0 16px 0;
+      color: #7f8c8d;
+      line-height: 1.5;
+    }
+
+    .error-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .service-stepper {
+      background: transparent;
+    }
+
+    .step-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-title {
+      font-weight: 500;
+    }
+
+    .step-check {
+      color: #27ae60;
+      font-size: 20px;
+    }
+
+    .step-content {
+      padding: 24px 0;
+    }
+
+    .description-card {
+      margin-bottom: 24px;
+      border-left: 4px solid #3498db;
+    }
+
+    .form-container {
+      margin-bottom: 24px;
+    }
+
+    .validation-messages {
+      margin-bottom: 24px;
+    }
+
+    .validation-card {
+      border-left: 4px solid #f39c12;
+      background: #fff9f0;
+    }
+
+    .validation-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-weight: 600;
+      color: #e67e22;
+    }
+
+    .warning-icon {
+      color: #f39c12;
+    }
+
+    .validation-list {
+      margin: 0;
+      padding-left: 20px;
+      color: #d35400;
+    }
+
+    .validation-list li {
+      margin-bottom: 4px;
+    }
+
+    .step-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 24px 0;
+      border-top: 1px solid #e0e0e0;
+      margin-top: 24px;
+    }
+
+    .action-spacer {
+      flex: 1;
+    }
+
+    .prev-btn {
+      color: #6c757d;
+    }
+
+    .draft-btn {
+      color: #17a2b8;
+      border: 1px solid #17a2b8;
+    }
+
+    .draft-btn:hover {
+      background: rgba(23, 162, 184, 0.1);
+    }
+
+    .next-btn {
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
+      font-weight: 600;
+      min-width: 160px;
+      height: 44px;
+    }
+
+    .next-btn:disabled {
+      background: #bdc3c7;
+      color: #95a5a6;
+    }
+
+    .next-btn mat-icon {
+      margin-right: 6px;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .service-wizard-container {
+        padding: 16px;
+      }
+
+      .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .wizard-title {
+        font-size: 24px;
+      }
+
+      .step-actions {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .step-actions button {
+        width: 100%;
+      }
+
+      .error-content {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+  `]
 })
 export class ServiceWizardComponent implements OnInit, OnDestroy {
   serviceCode: string = '';
@@ -191,6 +469,8 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     isValid: false
   };
 
+  currentStepValidation: { isValid: boolean; errors: string[] } | null = null;
+
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -199,16 +479,21 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private apiService: ApiService,
     private snackBar: MatSnackBar
-  ) {
-  }
+  ) {}
 
   ngOnInit(): void {
+    console.log('🚀 ServiceWizard: Initializing...');
+
     this.route.params.pipe(takeUntil(this.destroy$)).subscribe(params => {
       this.serviceCode = params['serviceCode'];
       this.serviceId = parseInt(params['serviceId']);
 
+      console.log('📋 ServiceWizard: Route params - Code:', this.serviceCode, 'ID:', this.serviceId);
+
       if (this.serviceCode && this.serviceId) {
         this.loadServiceFlow();
+      } else {
+        this.error = 'Invalid service parameters';
       }
     });
   }
@@ -222,13 +507,18 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.error = null;
 
+    console.log('🌐 ServiceWizard: Loading service flow for code:', this.serviceCode);
+
     this.apiService.getServiceFlow(this.serviceCode).subscribe({
       next: (response: ServiceFlowResponse) => {
+        console.log('✅ ServiceWizard: Service flow loaded:', response);
+
         this.serviceFlowSteps = response.service_flow || [];
         this.initializeWizard();
         this.isLoading = false;
       },
       error: (error: any) => {
+        console.error('❌ ServiceWizard: Error loading service flow:', error);
         this.error = error.message || 'Failed to load service flow';
         this.isLoading = false;
       }
@@ -236,6 +526,9 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
   }
 
   initializeWizard(): void {
+    console.log('🔧 ServiceWizard: Initializing wizard with', this.serviceFlowSteps.length, 'steps');
+
+    // Filter visible steps and sort by sequence number
     const visibleSteps = this.serviceFlowSteps
       .filter(step => !step.is_hidden_page)
       .sort((a, b) => parseInt(a.sequence_number) - parseInt(b.sequence_number));
@@ -244,11 +537,17 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     this.wizardState.totalSteps = visibleSteps.length;
     this.wizardState.completedSteps = new Array(visibleSteps.length).fill(false);
 
+    console.log('📊 ServiceWizard: Visible steps:', this.wizardState.totalSteps);
+
+    // Create form controls for each step
     this.stepForms = [];
     this.serviceFlowSteps.forEach((step, index) => {
       const form = this.createStepForm(step);
       this.stepForms.push(form);
     });
+
+    // Validate initial step
+    this.validateCurrentStep();
   }
 
   createStepForm(step: ServiceFlowStep): FormGroup {
@@ -270,9 +569,12 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
         return field.default_boolean || false;
       case 'number':
       case 'decimal':
+      case 'percentage':
         return null;
       case 'choice':
         return field.max_selections === 1 ? null : [];
+      case 'file':
+        return null;
       default:
         return '';
     }
@@ -301,55 +603,163 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
   }
 
   formatDescription(description: string): string {
-    return description.replace(/\n/g, '<br>');
+    return description
+      .replace(/\r?\n/g, '<br>')
+      .replace(/\r/g, '<br>');
   }
 
   onFormChange(formData: any): void {
+    console.log('📝 ServiceWizard: Form data changed:', Object.keys(formData).length, 'fields');
     Object.assign(this.wizardState.formData, formData);
+
+    // Validate current step when form changes
+    this.validateCurrentStep();
+  }
+
+  validateCurrentStep(): void {
+    if (!this.currentStep) {
+      this.currentStepValidation = null;
+      return;
+    }
+
+    const errors: string[] = [];
+    let isValid = true;
+
+    // Validate all fields in current step
+    this.currentStep.categories.forEach(category => {
+      category.fields.forEach(field => {
+        // Skip hidden and disabled fields
+        if (field.is_hidden || field.is_disabled) return;
+
+        const value = this.wizardState.formData[field.name];
+
+        // Check required fields
+        if (field.mandatory) {
+          if (!value || (Array.isArray(value) && value.length === 0) ||
+            (typeof value === 'string' && value.trim() === '')) {
+            errors.push(`${field.display_name} is required`);
+            isValid = false;
+          }
+        }
+
+        // Validate choice fields
+        if (field.field_type === 'choice' && value) {
+          if (field.min_selections && Array.isArray(value) && value.length < field.min_selections) {
+            errors.push(`${field.display_name} requires at least ${field.min_selections} selections`);
+            isValid = false;
+          }
+
+          if (field.max_selections && field.max_selections > 1 && Array.isArray(value) && value.length > field.max_selections) {
+            errors.push(`${field.display_name} allows at most ${field.max_selections} selections`);
+            isValid = false;
+          }
+        }
+
+        // Validate file fields
+        if (field.field_type === 'file' && field.mandatory && !value) {
+          errors.push(`${field.display_name} file is required`);
+          isValid = false;
+        }
+
+        // Validate text fields
+        if (field.field_type === 'text' && value) {
+          if (field.min_length && value.length < field.min_length) {
+            errors.push(`${field.display_name} must be at least ${field.min_length} characters`);
+            isValid = false;
+          }
+          if (field.max_length && value.length > field.max_length) {
+            errors.push(`${field.display_name} cannot exceed ${field.max_length} characters`);
+            isValid = false;
+          }
+        }
+
+        // Validate number fields
+        if ((field.field_type === 'number' || field.field_type === 'decimal') && value !== null && value !== undefined && value !== '') {
+          const num = Number(value);
+          if (isNaN(num)) {
+            errors.push(`${field.display_name} must be a valid number`);
+            isValid = false;
+          } else {
+            if (field.value_greater_than !== undefined && num <= field.value_greater_than) {
+              errors.push(`${field.display_name} must be greater than ${field.value_greater_than}`);
+              isValid = false;
+            }
+            if (field.value_less_than !== undefined && field.value_less_than !== null && num >= field.value_less_than) {
+              errors.push(`${field.display_name} must be less than ${field.value_less_than}`);
+              isValid = false;
+            }
+          }
+        }
+      });
+    });
+
+    this.currentStepValidation = { isValid, errors };
   }
 
   nextStep(): void {
+    this.validateCurrentStep();
+
+    if (this.currentStepValidation && !this.currentStepValidation.isValid) {
+      this.snackBar.open('Please fix the validation errors before proceeding', 'Close', {
+        duration: 5000,
+        panelClass: ['warning-snackbar']
+      });
+      return;
+    }
+
     if (this.isLastStep()) {
       this.submitApplication();
     } else {
       this.wizardState.completedSteps[this.wizardState.currentStep] = true;
       this.wizardState.currentStep++;
+
+      // Validate the new step
+      this.validateCurrentStep();
+
+      console.log('➡️ ServiceWizard: Moved to step', this.wizardState.currentStep + 1);
     }
   }
 
   previousStep(): void {
     if (this.wizardState.currentStep > 0) {
       this.wizardState.currentStep--;
+      this.validateCurrentStep();
+      console.log('⬅️ ServiceWizard: Moved to step', this.wizardState.currentStep + 1);
     }
   }
 
   goBack(): void {
+    console.log('🔙 ServiceWizard: Going back to services');
     this.router.navigate(['/services']);
   }
 
   saveDraft(): void {
-    this.snackBar.open('Draft saved successfully', 'Close', {duration: 3000});
+    console.log('💾 ServiceWizard: Saving draft...');
+    // TODO: Implement draft saving functionality
+    this.snackBar.open('Draft saved successfully', 'Close', { duration: 3000 });
   }
 
   submitApplication(): void {
+    console.log('🚀 ServiceWizard: Starting application submission...');
+
     this.isSubmitting = true;
 
     // Collect file types from form fields
     const fileTypes = this.collectFileTypes();
 
     const caseData: CaseSubmission = {
-      applicant_type: 13,
+      applicant_type: 13, // This should be configurable or from user profile
       case_type: this.serviceId,
       case_data: this.wizardState.formData,
       file_types: fileTypes
     };
 
-    console.log('🚀 Submitting case data:', caseData);
+    console.log('📦 ServiceWizard: Submitting case data:', caseData);
 
     // First create the case
     this.apiService.submitCase(caseData).subscribe({
       next: (response: any) => {
-        console.log('✅ Case created successfully:', response);
+        console.log('✅ ServiceWizard: Case created successfully:', response);
 
         // After case creation, submit it using the ID
         if (response.id) {
@@ -360,7 +770,7 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
         }
       },
       error: (error: any) => {
-        console.error('❌ Case creation failed:', error);
+        console.error('❌ ServiceWizard: Case creation failed:', error);
         this.isSubmitting = false;
         this.snackBar.open('Failed to submit application. Please try again.', 'Close', {
           duration: 5000,
@@ -390,20 +800,21 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
       });
     });
 
+    console.log('📎 ServiceWizard: Collected file types:', fileTypes);
     return fileTypes;
   }
 
   private submitCreatedCase(caseId: number): void {
-    console.log('🔄 Submitting case with ID:', caseId);
+    console.log('🔄 ServiceWizard: Submitting case with ID:', caseId);
 
     // Make PUT request to submit the case
-    this.apiService.put(`/case/cases/submit/${caseId}/`, {}).subscribe({
+    this.apiService.submitCreatedCase(caseId).subscribe({
       next: (response: any) => {
-        console.log('✅ Case submitted successfully:', response);
+        console.log('✅ ServiceWizard: Case submitted successfully:', response);
         this.handleSubmissionSuccess();
       },
       error: (error: any) => {
-        console.error('❌ Case submission failed:', error);
+        console.error('❌ ServiceWizard: Case submission failed:', error);
         this.isSubmitting = false;
         this.snackBar.open('Case was created but submission failed. Please try again.', 'Close', {
           duration: 5000,
