@@ -1,0 +1,28 @@
+// src/app/features/services/dynamic-form/field-components/percentage-field/percentage-field.component.html
+<div class="field-group">
+  <label [for]="field.name" class="field-label">
+    {{ field.display_name }}
+    <span class="required" *ngIf="field.mandatory">*</span>
+  </label>
+  <p class="field-subtitle" *ngIf="field.display_name_ara">{{ field.display_name_ara }}</p>
+
+  <div class="percentage-input-wrapper">
+    <input
+      type="number"
+      [id]="field.name"
+      class="form-control"
+      [value]="value"
+      [disabled]="field.is_disabled"
+      [placeholder]="field.display_name"
+      min="0"
+      max="100"
+      step="0.01"
+      (input)="onValueChange($event)"
+    />
+    <span class="percentage-symbol">%</span>
+  </div>
+
+  <div class="validation-message" *ngIf="getValidationMessage()">
+    {{ getValidationMessage() }}
+  </div>
+</div>

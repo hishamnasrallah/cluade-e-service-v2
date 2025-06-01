@@ -1,0 +1,25 @@
+// src/app/features/services/dynamic-form/field-components/choice-field/choice-field.component.html
+<div class="field-group">
+  <label [for]="field.name" class="field-label">
+    {{ field.display_name }}
+    <span class="required" *ngIf="field.mandatory">*</span>
+  </label>
+  <p class="field-subtitle" *ngIf="field.display_name_ara">{{ field.display_name_ara }}</p>
+
+  <select
+    [id]="field.name"
+    class="form-control"
+    [value]="value"
+    [disabled]="field.is_disabled || loading"
+    (change)="onValueChange($event)"
+  >
+    <option value="">Select an option</option>
+    <option *ngFor="let option of options" [value]="option.id">
+      {{ option.name }}
+    </option>
+  </select>
+
+  <div class="validation-message" *ngIf="getValidationMessage()">
+    {{ getValidationMessage() }}
+  </div>
+</div>

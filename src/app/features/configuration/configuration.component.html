@@ -1,0 +1,31 @@
+// src/app/features/configuration/configuration.component.html
+<div class="configuration-container">
+  <div class="configuration-card">
+    <h2>Backend Configuration</h2>
+    <p>Please configure the backend URL to continue</p>
+
+    <form [formGroup]="configForm" (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label for="baseUrl">Backend URL</label>
+        <input
+          type="url"
+          id="baseUrl"
+          class="form-control"
+          formControlName="baseUrl"
+          placeholder="https://api.example.com"
+        >
+        <div class="error-message" *ngIf="configForm.get('baseUrl')?.invalid && configForm.get('baseUrl')?.touched">
+          Please enter a valid URL
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="configForm.invalid"
+      >
+        Save Configuration
+      </button>
+    </form>
+  </div>
+</div>

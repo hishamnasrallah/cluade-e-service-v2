@@ -1,0 +1,18 @@
+// src/app/features/services/dynamic-form/field-components/boolean-field/boolean-field.component.html
+<div class="field-group">
+  <div class="checkbox-wrapper">
+    <input
+      type="checkbox"
+      [id]="field.name"
+      class="form-checkbox"
+      [checked]="value"
+      [disabled]="field.is_disabled"
+      (change)="onValueChange($event)"
+    />
+    <label [for]="field.name" class="checkbox-label">
+      {{ field.display_name }}
+      <span class="required" *ngIf="field.mandatory">*</span>
+    </label>
+  </div>
+  <p class="field-subtitle" *ngIf="field.display_name_ara">{{ field.display_name_ara }}</p>
+</div>

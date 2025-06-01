@@ -1,0 +1,27 @@
+// src/app/features/services/services-list/services-list.component.html
+<div class="services-container">
+  <h2>Available Services</h2>
+
+  <app-loading *ngIf="loading"></app-loading>
+  <app-error-message *ngIf="error" [message]="error"></app-error-message>
+
+  <div class="services-grid" *ngIf="!loading && !error">
+    <div
+      class="service-card"
+      *ngFor="let service of services"
+      (click)="selectService(service)"
+      [class.inactive]="!service.active_ind"
+    >
+      <div class="service-icon" *ngIf="service.icon">
+        <img [src]="service.icon" [alt]="service.name" />
+      </div>
+      <div class="service-icon default-icon" *ngIf="!service.icon">
+        <i class="icon-service">📋</i>
+      </div>
+
+      <h3>{{ service.name }}</h3>
+      <p *ngIf="service.name_ara">{{ service.name_ara }}</p>
+      <span class="service-code">Code: {{ service.code }}</span>
+    </div>
+  </div>
+</div>

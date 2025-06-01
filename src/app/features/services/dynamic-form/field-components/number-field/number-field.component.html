@@ -1,0 +1,23 @@
+// src/app/features/services/dynamic-form/field-components/number-field/number-field.component.html
+<div class="field-group">
+  <label [for]="field.name" class="field-label">
+    {{ field.display_name }}
+    <span class="required" *ngIf="field.mandatory">*</span>
+  </label>
+  <p class="field-subtitle" *ngIf="field.display_name_ara">{{ field.display_name_ara }}</p>
+
+  <input
+    type="number"
+    [id]="field.name"
+    class="form-control"
+    [value]="value"
+    [disabled]="field.is_disabled"
+    [placeholder]="field.display_name"
+    [step]="field.integer_only ? 1 : 'any'"
+    (input)="onValueChange($event)"
+  />
+
+  <div class="validation-message" *ngIf="getValidationMessage()">
+    {{ getValidationMessage() }}
+  </div>
+</div>

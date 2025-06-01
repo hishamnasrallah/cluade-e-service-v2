@@ -1,0 +1,37 @@
+// src/app/features/services/dynamic-form/field-components/file-field/file-field.component.html
+<div class="field-group">
+  <label [for]="field.name" class="field-label">
+    {{ field.display_name }}
+    <span class="required" *ngIf="field.mandatory">*</span>
+  </label>
+  <p class="field-subtitle" *ngIf="field.display_name_ara">{{ field.display_name_ara }}</p>
+
+  <div class="file-input-wrapper">
+    <input
+      type="file"
+      [id]="field.name"
+      class="file-input"
+      [disabled]="field.is_disabled"
+      [accept]="getAcceptedTypes()"
+      (change)="onFileChange($event)"
+    />
+    <label [for]="field.name" class="file-input-label">
+      <span class="file-input-text">
+        {{ selectedFileName || 'Choose file...' }}
+      </span>
+      <span class="file-input-button">Browse</span>
+    </label>
+  </div>
+
+  <div class="allowed-types" *ngIf="field.allowed_lookups?.length">
+    <small>Allowed types:
+      <span *ngFor="let lookup of field.allowed_lookups; let last = last">
+        {{ lookup.name }}<span *ngIf="!last">, </span>
+      </span>
+    </small>
+  </div>
+
+  <div class="validation-message" *ngIf="getValidationMessage()">
+    {{ getValidationMessage() }}
+  </div>
+</div>

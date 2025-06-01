@@ -1,0 +1,82 @@
+// src/app/features/applications/applications-list/applications-list.component.html
+<div class="applications-container">
+  <h2>My Applications</h2>
+
+  <div class="tabs">
+    <button
+      class="tab"
+      [class.active]="activeTab === 'all'"
+      (click)="setActiveTab('all')"
+    >
+      All
+    </button>
+    <button
+      class="tab"
+      [class.active]="activeTab === 'draft'"
+      (click)="setActiveTab('draft')"
+    >
+      Draft
+    </button>
+    <button
+      class="tab"
+      [class.active]="activeTab === 'returned'"
+      (click)="setActiveTab('returned')"
+    >
+      Returned
+    </button>
+    <button
+      class="tab"
+      [class.active]="activeTab === 'submitted'"
+      (click)="setActiveTab('submitted')"
+    >
+      Submitted
+    </button>
+    <button
+      class="tab"
+      [class.active]="activeTab === 'completed'"
+      (click)="setActiveTab('completed')"
+    >
+      Completed
+    </button>
+  </div>
+
+  <app-loading *ngIf="loading"></app-loading>
+  <app-error-message *ngIf="error" [message]="error"></app-error-message>
+
+  <div class="applications-list" *ngIf="!loading && !error">
+    <div
+      class="application-card"
+      *ngFor="let app of filteredApplications"
+      (click)="viewApplication(app)"
+    >
+      <div class="application-header">
+        <h3>Application #{{ app.serial_number }}</h3>
+        <span class="status" [class]="'status-' + app.status">
+          {{ getStatusText(app.status) }}
+        </span>
+      </div>
+
+      <div class="application-info">
+        <p><strong>Created:</strong> {{ app.created_at | date:'short' }}</p>
+        <p><strong>Updated:</strong> {{ app.updated_at | date:'short' }}</p>
+        <p *ngIf="app.case_data.first_name">
+          <strong>Name:</strong> {{ app.case_data.first_name }}
+        </p>
+      </div>
+
+      <div class="application-actions">
+        <button
+          class="btn btn-danger btn-sm"
+          (click)="deleteApplication(app, $event)"
+          *ngIf="app.status === 20"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+
+    <div class="no-applications" *ngIf="filteredApplications.length === 0">
+      <p>No applications found for the selected filter.</p>
+    </div>
+  </div>
+</div>

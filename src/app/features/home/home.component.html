@@ -1,0 +1,31 @@
+// src/app/features/home/home.component.html
+<div class="home-container">
+  <header class="app-header">
+    <h1>Service Application Portal</h1>
+    <button class="btn btn-secondary logout-btn" (click)="logout()">
+      Logout
+    </button>
+  </header>
+
+  <nav class="main-nav">
+    <button
+      class="nav-tab"
+      [class.active]="activeTab === 'applications'"
+      (click)="setActiveTab('applications')"
+    >
+      My Applications
+    </button>
+    <button
+      class="nav-tab"
+      [class.active]="activeTab === 'services'"
+      (click)="setActiveTab('services')"
+    >
+      Services
+    </button>
+  </nav>
+
+  <main class="main-content">
+    <app-applications-list *ngIf="activeTab === 'applications'"></app-applications-list>
+    <app-services-list *ngIf="activeTab === 'services'"></app-services-list>
+  </main>
+</div>

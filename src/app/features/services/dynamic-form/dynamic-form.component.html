@@ -1,0 +1,69 @@
+// src/app/features/services/dynamic-form/dynamic-form.component.html
+<form [formGroup]="dynamicForm" class="dynamic-form">
+  <div class="category" *ngFor="let category of categories">
+    <h4 class="category-title">{{ category.name }}</h4>
+    <p class="category-subtitle" *ngIf="category.name_ara">{{ category.name_ara }}</p>
+
+    <div class="fields-container">
+      <div class="field-wrapper" *ngFor="let field of category.fields">
+        <div *ngIf="isFieldVisible(field)">
+          <!-- Text Field -->
+          <app-text-field
+            *ngIf="field.field_type === 'text'"
+            [field]="field"
+            [value]="dynamicForm.get(field.name)?.value"
+            (valueChange)="onFieldValueChange(field.name, $event)"
+          ></app-text-field>
+
+          <!-- Number Field -->
+          <app-number-field
+            *ngIf="field.field_type === 'number'"
+            [field]="field"
+            [value]="dynamicForm.get(field.name)?.value"
+            (valueChange)="onFieldValueChange(field.name, $event)"
+          ></app-number-field>
+
+          <!-- Boolean Field -->
+          <app-boolean-field
+            *ngIf="field.field_type === 'boolean'"
+            [field]="field"
+            [value]="dynamicForm.get(field.name)?.value"
+            (valueChange)="onFieldValueChange(field.name, $event)"
+          ></app-boolean-field>
+
+          <!-- Choice Field -->
+          <app-choice-field
+            *ngIf="field.field_type === 'choice'"
+            [field]="field"
+            [value]="dynamicForm.get(field.name)?.value"
+            (valueChange)="onFieldValueChange(field.name, $event)"
+          ></app-choice-field>
+
+          <!-- File Field -->
+          <app-file-field
+            *ngIf="field.field_type === 'file'"
+            [field]="field"
+            [value]="dynamicForm.get(field.name)?.value"
+            (valueChange)="onFieldValueChange(field.name, $event)"
+          ></app-file-field>
+
+          <!-- Decimal Field -->
+          <app-decimal-field
+            *ngIf="field.field_type === 'decimal'"
+            [field]="field"
+            [value]="dynamicForm.get(field.name)?.value"
+            (valueChange)="onFieldValueChange(field.name, $event)"
+          ></app-decimal-field>
+
+          <!-- Percentage Field -->
+          <app-percentage-field
+            *ngIf="field.field_type === 'percentage'"
+            [field]="field"
+            [value]="dynamicForm.get(field.name)?.value"
+            (valueChange)="onFieldValueChange(field.name, $event)"
+          ></app-percentage-field>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>

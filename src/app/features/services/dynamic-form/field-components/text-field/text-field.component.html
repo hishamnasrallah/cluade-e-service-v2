@@ -1,0 +1,22 @@
+// src/app/features/services/dynamic-form/field-components/text-field/text-field.component.html
+<div class="field-group">
+  <label [for]="field.name" class="field-label">
+    {{ field.display_name }}
+    <span class="required" *ngIf="field.mandatory">*</span>
+  </label>
+  <p class="field-subtitle" *ngIf="field.display_name_ara">{{ field.display_name_ara }}</p>
+
+  <input
+    type="text"
+    [id]="field.name"
+    class="form-control"
+    [value]="value"
+    [disabled]="field.is_disabled"
+    [placeholder]="field.display_name"
+    (input)="onValueChange($event)"
+  />
+
+  <div class="validation-message" *ngIf="getValidationMessage()">
+    {{ getValidationMessage() }}
+  </div>
+</div>

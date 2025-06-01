@@ -1,0 +1,72 @@
+// src/app/features/services/service-wizard/service-wizard.component.html
+<div class="wizard-container">
+  <div class="wizard-header">
+    <button class="btn btn-secondary" (click)="cancel()">
+      ← Cancel
+    </button>
+    <h2>Service Application</h2>
+  </div>
+
+  <app-loading *ngIf="loading"></app-loading>
+  <app-error-message *ngIf="error" [message]="error"></app-error-message>
+
+  <div class="wizard-content" *ngIf="!loading && !error && currentStep">
+    <!-- Step Progress -->
+    <div class="step-progress">
+      <div class="progress-bar">
+        <div
+          class="progress-fill"
+          [style.width.%]="((currentStepIndex + 1) / steps.length) * 100"
+        ></div>
+      </div>
+      <span class="progress-text">
+        Step {{ currentStepIndex + 1 }} of {{ steps.length }}
+      </span>
+    </div>
+
+    <!-- Current Step Content -->
+    <div class="step-content">
+      <h3>{{ currentStep.name }}</h3>
+      <div
+        class="step-description"
+        *ngIf="currentStep.description"
+        [innerHTML]="currentStep.description | safeHtml"
+      ></div>
+
+      <app-dynamic-form
+        [categories]="currentStep.categories"
+        [formData]="wizardForm.value"
+        (formDataChange)="onFormDataChange($event)"
+      ></app-dynamic-form>
+    </div>
+
+    <!-- Navigation -->
+    <div class="wizard-navigation">
+      <button
+        class="btn btn-secondary"
+        (click)="previousStep()"
+        [disabled]="isFirstStep"
+      >
+        Previous
+      </button>
+
+      <button
+        class="btn btn-primary"
+        (click)="nextStep()"
+        *ngIf="!isLastStep"
+      >
+        Next
+      </button>
+
+      <button
+        class="btn btn-success"
+        (click)="submit()"
+        [disabled]="submitting"
+        *ngIf="isLastStep"
+      >
+        <app-loading *ngIf="submitting"></app-loading>
+        Submit Application
+      </button>
+    </div>
+  </div>
+</div>

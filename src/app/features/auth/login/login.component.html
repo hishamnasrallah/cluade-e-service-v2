@@ -1,0 +1,47 @@
+// src/app/features/auth/login/login.component.html
+<div class="login-container">
+  <div class="login-card">
+    <h2>Login</h2>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input
+          type="text"
+          id="username"
+          class="form-control"
+          formControlName="username"
+          placeholder="Enter your username"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          class="form-control"
+          formControlName="password"
+          placeholder="Enter your password"
+        >
+      </div>
+
+      <app-error-message *ngIf="error" [message]="error"></app-error-message>
+
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="loginForm.invalid || loading"
+      >
+        <app-loading *ngIf="loading"></app-loading>
+        Login
+      </button>
+    </form>
+
+    <div class="config-link">
+      <button type="button" class="btn btn-link" (click)="goToConfig()">
+        Configure Backend URL
+      </button>
+    </div>
+  </div>
+</div>
