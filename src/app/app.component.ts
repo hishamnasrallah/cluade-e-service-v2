@@ -10,6 +10,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AuthService } from './core/services/auth.service';
 import { ConfigService } from './core/services/config.service';
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -19,66 +20,75 @@ import { ConfigService } from './core/services/config.service';
     MatToolbarModule,
     MatIconModule,
     MatButtonModule,
-    MatMenuModule
+    MatMenuModule,
+    MatTooltipModule
   ],
   template: `
-    <mat-toolbar color="primary" class="app-toolbar">
-      <span class="toolbar-title">
-        <mat-icon class="app-icon">apps</mat-icon>
-        Low-Code Platform
-      </span>
+    <div class="app-container">
+      <mat-toolbar color="primary" class="app-toolbar">
+        <span class="toolbar-title">
+          <mat-icon class="app-icon">apps</mat-icon>
+          Low-Code Platform
+        </span>
 
-      <span class="spacer"></span>
+        <span class="spacer"></span>
 
-      <!-- Navigation buttons when authenticated -->
-      <div class="nav-buttons" *ngIf="isAuthenticated">
-        <button mat-button
-                [class.active]="isActiveRoute('/home')"
-                (click)="navigateTo('/home')">
-          <mat-icon>home</mat-icon>
-          My Applications
-        </button>
-
-        <button mat-button
-                [class.active]="isActiveRoute('/services')"
-                (click)="navigateTo('/services')">
-          <mat-icon>miscellaneous_services</mat-icon>
-          Services
-        </button>
-      </div>
-
-      <!-- User menu -->
-      <div class="user-menu" *ngIf="isAuthenticated">
-        <button mat-icon-button [matMenuTriggerFor]="userMenu">
-          <mat-icon>account_circle</mat-icon>
-        </button>
-
-        <mat-menu #userMenu="matMenu">
-          <button mat-menu-item (click)="goToConfig()">
-            <mat-icon>settings</mat-icon>
-            <span>Configuration</span>
+        <!-- Navigation buttons when authenticated -->
+        <div class="nav-buttons" *ngIf="isAuthenticated">
+          <button mat-button
+                  [class.active]="isActiveRoute('/home')"
+                  (click)="navigateTo('/home')">
+            <mat-icon>home</mat-icon>
+            My Applications
           </button>
-          <button mat-menu-item (click)="logout()">
-            <mat-icon>logout</mat-icon>
-            <span>Logout</span>
+
+          <button mat-button
+                  [class.active]="isActiveRoute('/services')"
+                  (click)="navigateTo('/services')">
+            <mat-icon>miscellaneous_services</mat-icon>
+            Services
           </button>
-        </mat-menu>
-      </div>
+        </div>
 
-      <!-- Config button when not authenticated -->
-      <button mat-icon-button
-              *ngIf="!isAuthenticated && showConfigButton"
-              (click)="goToConfig()"
-              matTooltip="Configuration">
-        <mat-icon>settings</mat-icon>
-      </button>
-    </mat-toolbar>
+        <!-- User menu -->
+        <div class="user-menu" *ngIf="isAuthenticated">
+          <button mat-icon-button [matMenuTriggerFor]="userMenu">
+            <mat-icon>account_circle</mat-icon>
+          </button>
 
-    <main class="main-content">
-      <router-outlet></router-outlet>
-    </main>
+          <mat-menu #userMenu="matMenu">
+            <button mat-menu-item (click)="goToConfig()">
+              <mat-icon>settings</mat-icon>
+              <span>Configuration</span>
+            </button>
+            <button mat-menu-item (click)="logout()">
+              <mat-icon>logout</mat-icon>
+              <span>Logout</span>
+            </button>
+          </mat-menu>
+        </div>
+
+        <!-- Config button when not authenticated -->
+        <button mat-icon-button
+                *ngIf="!isAuthenticated && showConfigButton"
+                (click)="goToConfig()"
+                matTooltip="Configuration">
+          <mat-icon>settings</mat-icon>
+        </button>
+      </mat-toolbar>
+
+      <main class="main-content">
+        <router-outlet></router-outlet>
+      </main>
+    </div>
   `,
   styles: [`
+    .app-container {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
     .app-toolbar {
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       z-index: 1000;
@@ -132,7 +142,7 @@ import { ConfigService } from './core/services/config.service';
     }
 
     .main-content {
-      min-height: calc(100vh - 64px);
+      flex: 1;
       background: #f5f5f5;
     }
 

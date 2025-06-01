@@ -1,5 +1,5 @@
 // src/app/app.config.ts
-import { ApplicationConfig } from '@angular/core';
+import { ApplicationConfig, importProvidersFrom } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import {
   provideHttpClient,
@@ -9,8 +9,13 @@ import {
 import { provideZoneChangeDetection } from '@angular/core';
 import { provideAnimations } from '@angular/platform-browser/animations';
 
+// Import Material modules that need to be provided globally
+import { MatSnackBarModule } from '@angular/material/snack-bar';
+
 import { routes } from './app.routes';
 import { AuthInterceptor } from './core/interceptors/auth.interceptor';
+
+// Services
 import { AuthService } from './core/services/auth.service';
 import { ConfigService } from './core/services/config.service';
 import { ApiService } from './core/services/api.service';
@@ -18,7 +23,10 @@ import { FormValidationService } from './core/services/form-validation.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    // Zone change detection
     provideZoneChangeDetection({ eventCoalescing: true }),
+
+    // Router
     provideRouter(routes),
 
     // HTTP Client with interceptors
@@ -27,13 +35,16 @@ export const appConfig: ApplicationConfig = {
     // Animations for Material UI
     provideAnimations(),
 
-    // Services
+    // Import Material modules globally
+    importProvidersFrom(MatSnackBarModule),
+
+    // Core Services
     AuthService,
     ConfigService,
     ApiService,
     FormValidationService,
 
-    // Auth interceptor for JWT tokens
+    // HTTP Interceptors
     {
       provide: HTTP_INTERCEPTORS,
       useClass: AuthInterceptor,

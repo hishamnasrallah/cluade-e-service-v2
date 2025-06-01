@@ -2,40 +2,97 @@
 import { Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
 
+console.log('📍 Loading application routes...');
+
 export const routes: Routes = [
+  // Configuration route - accessible without authentication
   {
     path: 'config',
-    loadComponent: () => import('./features/configuration/configuration.component').then(m => m.ConfigComponent)
+    loadComponent: () => {
+      console.log('🔧 Loading configuration component...');
+      return import('./features/configuration/configuration.component').then(m => {
+        console.log('✅ Configuration component loaded');
+        return m.ConfigComponent;
+      });
+    }
   },
+
+  // Login route - accessible without authentication
   {
     path: 'login',
-    loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent)
+    loadComponent: () => {
+      console.log('🔐 Loading login component...');
+      return import('./features/auth/login/login.component').then(m => {
+        console.log('✅ Login component loaded');
+        return m.LoginComponent;
+      });
+    }
   },
+
+  // Home route - requires authentication
   {
     path: 'home',
-    loadComponent: () => import('./features/home/home.component').then(m => m.HomeComponent),
+    loadComponent: () => {
+      console.log('🏠 Loading home component...');
+      return import('./features/home/home.component').then(m => {
+        console.log('✅ Home component loaded');
+        return m.HomeComponent;
+      });
+    },
     canActivate: [AuthGuard]
   },
+
+  // Services route - requires authentication
   {
     path: 'services',
-    loadComponent: () => import('./features/services/services.component').then(m => m.ServicesComponent),
+    loadComponent: () => {
+      console.log('🛠️ Loading services component...');
+      return import('./features/services/services.component').then(m => {
+        console.log('✅ Services component loaded');
+        return m.ServicesComponent;
+      });
+    },
     canActivate: [AuthGuard]
   },
+
+  // Service wizard route - requires authentication
   {
-    // Updated route to accept both service CODE and service ID
-    // :serviceCode - for the service flow API (e.g., "01", "03", "05")
-    // :serviceId - for case submission (numeric ID like 9, 46, 51)
     path: 'service-flow/:serviceCode/:serviceId',
-    loadComponent: () => import('./features/services/service-wizard/service-wizard.component').then(m => m.ServiceWizardComponent),
+    loadComponent: () => {
+      console.log('📋 Loading service wizard component...');
+      return import('./features/services/service-wizard/service-wizard.component').then(m => {
+        console.log('✅ Service wizard component loaded');
+        return m.ServiceWizardComponent;
+      });
+    },
     canActivate: [AuthGuard]
   },
+
+  // Application detail route - requires authentication
+  {
+    path: 'application/:id',
+    loadComponent: () => {
+      console.log('📄 Loading application detail component...');
+      return import('./features/applications/application-detail/application-detail.component').then(m => {
+        console.log('✅ Application detail component loaded');
+        return m.ApplicationDetailComponent;
+      });
+    },
+    canActivate: [AuthGuard]
+  },
+
+  // Default redirect to config (will be handled by AppComponent logic)
   {
     path: '',
-    redirectTo: '/home',
+    redirectTo: '/config',
     pathMatch: 'full'
   },
+
+  // Wildcard route - redirect to config
   {
     path: '**',
-    redirectTo: '/home'
+    redirectTo: '/config'
   }
 ];
+
+console.log('✅ Application routes configured:', routes.length, 'routes');

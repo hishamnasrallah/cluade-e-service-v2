@@ -28,25 +28,29 @@ export class AuthGuard implements CanActivate {
     state: RouterStateSnapshot
   ): Observable<boolean> | Promise<boolean> | boolean {
 
+    console.log('🛡️ AuthGuard: Checking access for route:', state.url);
+
     // First check if the app is configured
     if (!this.configService.isConfigured()) {
-      console.log('🔄 App not configured, redirecting to config page');
+      console.log('🔄 AuthGuard: App not configured, redirecting to config page');
       this.router.navigate(['/config']);
       return false;
     }
 
     // Check if user is authenticated
     if (this.authService.isAuthenticated()) {
+      console.log('✅ AuthGuard: User is authenticated');
+
       // Check if token is expiring soon and refresh if needed
       if (this.authService.isTokenExpiringSoon()) {
-        console.log('🔄 Token expiring soon, attempting refresh');
+        console.log('🔄 AuthGuard: Token expiring soon, attempting refresh');
         return this.authService.refreshToken().pipe(
           map(() => {
-            console.log('✅ Token refreshed successfully');
+            console.log('✅ AuthGuard: Token refreshed successfully');
             return true;
           }),
           catchError((error) => {
-            console.error('❌ Token refresh failed:', error);
+            console.error('❌ AuthGuard: Token refresh failed:', error);
             this.authService.logout();
             this.router.navigate(['/login'], {
               queryParams: { returnUrl: state.url }
@@ -56,12 +60,11 @@ export class AuthGuard implements CanActivate {
         );
       }
 
-      console.log('✅ User is authenticated');
       return true;
     }
 
     // User is not authenticated, redirect to login
-    console.log('❌ User not authenticated, redirecting to login');
+    console.log('❌ AuthGuard: User not authenticated, redirecting to login');
     this.router.navigate(['/login'], {
       queryParams: { returnUrl: state.url }
     });
@@ -84,14 +87,17 @@ export class GuestGuard implements CanActivate {
     state: RouterStateSnapshot
   ): boolean {
 
+    console.log('👤 GuestGuard: Checking guest access for route:', state.url);
+
     // If user is already authenticated, redirect to home
     if (this.authService.isAuthenticated()) {
-      console.log('✅ User already authenticated, redirecting to home');
+      console.log('✅ GuestGuard: User already authenticated, redirecting to home');
       this.router.navigate(['/home']);
       return false;
     }
 
     // User is not authenticated, allow access to login/config pages
+    console.log('✅ GuestGuard: Guest access allowed');
     return true;
   }
 }
@@ -111,9 +117,12 @@ export class ConfigGuard implements CanActivate {
     state: RouterStateSnapshot
   ): boolean {
 
+    console.log('⚙️ ConfigGuard: Checking config access for route:', state.url);
+
     // Always allow access to config page
     // But if already configured and trying to access other routes,
     // this guard can provide logic for that
+    console.log('✅ ConfigGuard: Config access allowed');
     return true;
   }
 }

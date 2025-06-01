@@ -1,7 +1,7 @@
 // src/app/core/services/auth.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 
 import { ConfigService } from './config.service';
@@ -21,7 +21,9 @@ export class AuthService {
     private http: HttpClient,
     private configService: ConfigService
   ) {
+    console.log('🔐 AuthService: Initializing...');
     this.checkAuthStatus();
+    console.log('✅ AuthService: Initialized');
   }
 
   /**
@@ -31,18 +33,21 @@ export class AuthService {
     const baseUrl = this.configService.getBaseUrl();
 
     if (!baseUrl) {
+      console.error('❌ AuthService: No base URL configured for login');
       throw new Error('Base URL not configured');
     }
+
+    console.log('🔐 AuthService: Attempting login for user:', credentials.username);
 
     return this.http.post<LoginResponse>(`${baseUrl}/auth/login/`, credentials)
       .pipe(
         tap(response => {
           this.storeTokens(response.access, response.refresh);
           this.isAuthenticatedSubject.next(true);
-          console.log('✅ Login successful, tokens stored');
+          console.log('✅ AuthService: Login successful, tokens stored');
         }),
         catchError(error => {
-          console.error('❌ Login failed:', error);
+          console.error('❌ AuthService: Login failed:', error);
           throw error;
         })
       );
@@ -54,21 +59,31 @@ export class AuthService {
   logout(): void {
     this.clearTokens();
     this.isAuthenticatedSubject.next(false);
-    console.log('✅ User logged out, tokens cleared');
+    console.log('✅ AuthService: User logged out, tokens cleared');
   }
 
   /**
    * Get stored access token
    */
   getAccessToken(): string | null {
-    return localStorage.getItem(this.ACCESS_TOKEN_KEY);
+    try {
+      return localStorage.getItem(this.ACCESS_TOKEN_KEY);
+    } catch (error) {
+      console.error('❌ AuthService: Failed to get access token:', error);
+      return null;
+    }
   }
 
   /**
    * Get stored refresh token
    */
   getRefreshToken(): string | null {
-    return localStorage.getItem(this.REFRESH_TOKEN_KEY);
+    try {
+      return localStorage.getItem(this.REFRESH_TOKEN_KEY);
+    } catch (error) {
+      console.error('❌ AuthService: Failed to get refresh token:', error);
+      return null;
+    }
   }
 
   /**
@@ -77,15 +92,17 @@ export class AuthService {
   isAuthenticated(): boolean {
     const token = this.getAccessToken();
     if (!token) {
+      console.log('🔍 AuthService: No access token found');
       return false;
     }
 
     // Check if token is expired
     if (this.isTokenExpired(token)) {
-      console.log('⚠️ Access token expired');
+      console.log('⚠️ AuthService: Access token expired');
       return false;
     }
 
+    console.log('✅ AuthService: User is authenticated');
     return true;
   }
 
@@ -97,18 +114,25 @@ export class AuthService {
     const baseUrl = this.configService.getBaseUrl();
 
     if (!refreshToken || !baseUrl) {
-      throw new Error('No refresh token or base URL available');
+      console.error('❌ AuthService: No refresh token or base URL available');
+      return of().pipe(
+        tap(() => {
+          throw new Error('No refresh token or base URL available');
+        })
+      );
     }
+
+    console.log('🔄 AuthService: Attempting token refresh');
 
     return this.http.post<LoginResponse>(`${baseUrl}/auth/token/refresh/`, {
       refresh: refreshToken
     }).pipe(
       tap(response => {
         this.storeTokens(response.access, response.refresh);
-        console.log('✅ Token refreshed successfully');
+        console.log('✅ AuthService: Token refreshed successfully');
       }),
       catchError(error => {
-        console.error('❌ Token refresh failed:', error);
+        console.error('❌ AuthService: Token refresh failed:', error);
         this.logout(); // Clear invalid tokens
         throw error;
       })
@@ -119,36 +143,54 @@ export class AuthService {
    * Store tokens in localStorage
    */
   private storeTokens(accessToken: string, refreshToken: string): void {
-    localStorage.setItem(this.ACCESS_TOKEN_KEY, accessToken);
-    localStorage.setItem(this.REFRESH_TOKEN_KEY, refreshToken);
+    try {
+      localStorage.setItem(this.ACCESS_TOKEN_KEY, accessToken);
+      localStorage.setItem(this.REFRESH_TOKEN_KEY, refreshToken);
+      console.log('💾 AuthService: Tokens stored successfully');
+    } catch (error) {
+      console.error('❌ AuthService: Failed to store tokens:', error);
+    }
   }
 
   /**
    * Clear tokens from localStorage
    */
   private clearTokens(): void {
-    localStorage.removeItem(this.ACCESS_TOKEN_KEY);
-    localStorage.removeItem(this.REFRESH_TOKEN_KEY);
+    try {
+      localStorage.removeItem(this.ACCESS_TOKEN_KEY);
+      localStorage.removeItem(this.REFRESH_TOKEN_KEY);
+      console.log('🗑️ AuthService: Tokens cleared successfully');
+    } catch (error) {
+      console.error('❌ AuthService: Failed to clear tokens:', error);
+    }
   }
 
   /**
    * Check initial authentication status on service initialization
    */
   private checkAuthStatus(): void {
-    const isAuth = this.isAuthenticated();
-    this.isAuthenticatedSubject.next(isAuth);
+    try {
+      const isAuth = this.isAuthenticated();
+      this.isAuthenticatedSubject.next(isAuth);
+      console.log('🔍 AuthService: Initial auth status check:', isAuth ? 'authenticated' : 'not authenticated');
 
-    if (!isAuth && this.getRefreshToken()) {
-      // Try to refresh token if we have a refresh token but access token is invalid
-      this.refreshToken().subscribe({
-        next: () => {
-          this.isAuthenticatedSubject.next(true);
-        },
-        error: () => {
-          // Refresh failed, user needs to login again
-          this.isAuthenticatedSubject.next(false);
-        }
-      });
+      if (!isAuth && this.getRefreshToken()) {
+        console.log('🔄 AuthService: No valid access token but refresh token exists, attempting refresh');
+        // Try to refresh token if we have a refresh token but access token is invalid
+        this.refreshToken().subscribe({
+          next: () => {
+            this.isAuthenticatedSubject.next(true);
+            console.log('✅ AuthService: Token refreshed during initialization');
+          },
+          error: (error) => {
+            console.log('❌ AuthService: Token refresh failed during initialization:', error.message);
+            this.isAuthenticatedSubject.next(false);
+          }
+        });
+      }
+    } catch (error) {
+      console.error('❌ AuthService: Error during auth status check:', error);
+      this.isAuthenticatedSubject.next(false);
     }
   }
 
@@ -159,9 +201,15 @@ export class AuthService {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const currentTime = Math.floor(Date.now() / 1000);
-      return payload.exp < currentTime;
+      const isExpired = payload.exp < currentTime;
+
+      if (isExpired) {
+        console.log('⏰ AuthService: Token expired at:', new Date(payload.exp * 1000));
+      }
+
+      return isExpired;
     } catch (error) {
-      console.error('Error parsing token:', error);
+      console.error('❌ AuthService: Error parsing token:', error);
       return true; // Consider invalid tokens as expired
     }
   }
@@ -185,7 +233,7 @@ export class AuthService {
         iat: payload.iat
       };
     } catch (error) {
-      console.error('Error parsing token for user info:', error);
+      console.error('❌ AuthService: Error parsing token for user info:', error);
       return null;
     }
   }
@@ -203,8 +251,15 @@ export class AuthService {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const currentTime = Math.floor(Date.now() / 1000);
       const fiveMinutesFromNow = currentTime + (5 * 60);
-      return payload.exp < fiveMinutesFromNow;
+      const expiringSoon = payload.exp < fiveMinutesFromNow;
+
+      if (expiringSoon) {
+        console.log('⚠️ AuthService: Token expiring soon, expires at:', new Date(payload.exp * 1000));
+      }
+
+      return expiringSoon;
     } catch (error) {
+      console.error('❌ AuthService: Error checking token expiration:', error);
       return false;
     }
   }

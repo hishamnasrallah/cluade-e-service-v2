@@ -1,4 +1,4 @@
-// src/app/services/config.service.ts
+// src/app/core/services/config.service.ts
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { AppConfig } from '../models/interfaces';
@@ -15,7 +15,9 @@ export class ConfigService {
   public config$ = this.configSubject.asObservable();
 
   constructor() {
+    console.log('🔧 ConfigService: Initializing...');
     this.validateConfigVersion();
+    console.log('✅ ConfigService: Initialized');
   }
 
   /**
@@ -28,18 +30,28 @@ export class ConfigService {
       throw new Error('Invalid URL format');
     }
 
-    localStorage.setItem(this.BASE_URL_KEY, cleanUrl);
-    localStorage.setItem(this.CONFIG_VERSION_KEY, this.CURRENT_CONFIG_VERSION);
+    try {
+      localStorage.setItem(this.BASE_URL_KEY, cleanUrl);
+      localStorage.setItem(this.CONFIG_VERSION_KEY, this.CURRENT_CONFIG_VERSION);
 
-    this.configSubject.next(this.loadConfig());
-    console.log('✅ Base URL configured:', cleanUrl);
+      this.configSubject.next(this.loadConfig());
+      console.log('✅ ConfigService: Base URL configured:', cleanUrl);
+    } catch (error) {
+      console.error('❌ ConfigService: Failed to save base URL:', error);
+      throw error;
+    }
   }
 
   /**
    * Get the configured base URL
    */
   getBaseUrl(): string {
-    return localStorage.getItem(this.BASE_URL_KEY) || '';
+    try {
+      return localStorage.getItem(this.BASE_URL_KEY) || '';
+    } catch (error) {
+      console.error('❌ ConfigService: Failed to get base URL:', error);
+      return '';
+    }
   }
 
   /**
@@ -47,7 +59,9 @@ export class ConfigService {
    */
   isConfigured(): boolean {
     const baseUrl = this.getBaseUrl();
-    return Boolean(baseUrl && this.isValidUrl(baseUrl));
+    const configured = Boolean(baseUrl && this.isValidUrl(baseUrl));
+    console.log('🔍 ConfigService: Is configured?', configured, 'URL:', baseUrl);
+    return configured;
   }
 
   /**
@@ -61,10 +75,14 @@ export class ConfigService {
    * Clear configuration
    */
   clearConfig(): void {
-    localStorage.removeItem(this.BASE_URL_KEY);
-    localStorage.removeItem(this.CONFIG_VERSION_KEY);
-    this.configSubject.next(this.loadConfig());
-    console.log('✅ Configuration cleared');
+    try {
+      localStorage.removeItem(this.BASE_URL_KEY);
+      localStorage.removeItem(this.CONFIG_VERSION_KEY);
+      this.configSubject.next(this.loadConfig());
+      console.log('✅ ConfigService: Configuration cleared');
+    } catch (error) {
+      console.error('❌ ConfigService: Failed to clear configuration:', error);
+    }
   }
 
   /**
@@ -79,6 +97,8 @@ export class ConfigService {
         return;
       }
 
+      console.log('🔍 ConfigService: Testing connection to:', baseUrl);
+
       // Create a simple fetch request to test the connection
       fetch(`${baseUrl}/api/health/`, {
         method: 'GET',
@@ -88,13 +108,16 @@ export class ConfigService {
       })
         .then(response => {
           if (response.ok) {
+            console.log('✅ ConfigService: Connection test successful');
             observer.next(true);
             observer.complete();
           } else {
+            console.log('❌ ConfigService: Connection test failed - HTTP', response.status);
             observer.error(new Error(`HTTP ${response.status}: ${response.statusText}`));
           }
         })
         .catch(error => {
+          console.log('❌ ConfigService: Connection test failed:', error.message);
           observer.error(error);
         });
     });
@@ -131,12 +154,12 @@ export class ConfigService {
 
       if (config.baseUrl && this.isValidUrl(config.baseUrl)) {
         this.setBaseUrl(config.baseUrl);
-        console.log('✅ Configuration imported successfully');
+        console.log('✅ ConfigService: Configuration imported successfully');
       } else {
         throw new Error('Invalid configuration format');
       }
     } catch (error) {
-      console.error('❌ Failed to import configuration:', error);
+      console.error('❌ ConfigService: Failed to import configuration:', error);
       throw new Error('Invalid configuration file');
     }
   }
@@ -165,10 +188,13 @@ export class ConfigService {
    * Load configuration from localStorage
    */
   private loadConfig(): AppConfig {
-    return {
+    const config = {
       baseUrl: this.getBaseUrl(),
       isConfigured: this.isConfigured()
     };
+
+    console.log('📂 ConfigService: Loading config:', config);
+    return config;
   }
 
   /**
@@ -206,18 +232,22 @@ export class ConfigService {
    * Validate configuration version and migrate if needed
    */
   private validateConfigVersion(): void {
-    const storedVersion = localStorage.getItem(this.CONFIG_VERSION_KEY);
+    try {
+      const storedVersion = localStorage.getItem(this.CONFIG_VERSION_KEY);
 
-    if (!storedVersion) {
-      // First time setup or old version without version tracking
-      const baseUrl = this.getBaseUrl();
-      if (baseUrl) {
-        localStorage.setItem(this.CONFIG_VERSION_KEY, this.CURRENT_CONFIG_VERSION);
-        console.log('✅ Configuration version updated to', this.CURRENT_CONFIG_VERSION);
+      if (!storedVersion) {
+        // First time setup or old version without version tracking
+        const baseUrl = this.getBaseUrl();
+        if (baseUrl) {
+          localStorage.setItem(this.CONFIG_VERSION_KEY, this.CURRENT_CONFIG_VERSION);
+          console.log('✅ ConfigService: Configuration version updated to', this.CURRENT_CONFIG_VERSION);
+        }
+      } else if (storedVersion !== this.CURRENT_CONFIG_VERSION) {
+        // Handle version migration if needed
+        this.migrateConfiguration(storedVersion, this.CURRENT_CONFIG_VERSION);
       }
-    } else if (storedVersion !== this.CURRENT_CONFIG_VERSION) {
-      // Handle version migration if needed
-      this.migrateConfiguration(storedVersion, this.CURRENT_CONFIG_VERSION);
+    } catch (error) {
+      console.error('❌ ConfigService: Version validation failed:', error);
     }
   }
 
@@ -225,12 +255,15 @@ export class ConfigService {
    * Migrate configuration between versions
    */
   private migrateConfiguration(fromVersion: string, toVersion: string): void {
-    console.log(`🔄 Migrating configuration from ${fromVersion} to ${toVersion}`);
+    console.log(`🔄 ConfigService: Migrating configuration from ${fromVersion} to ${toVersion}`);
 
-    // Add migration logic here as needed
-    // For now, just update the version
-    localStorage.setItem(this.CONFIG_VERSION_KEY, toVersion);
-
-    console.log('✅ Configuration migration completed');
+    try {
+      // Add migration logic here as needed
+      // For now, just update the version
+      localStorage.setItem(this.CONFIG_VERSION_KEY, toVersion);
+      console.log('✅ ConfigService: Configuration migration completed');
+    } catch (error) {
+      console.error('❌ ConfigService: Migration failed:', error);
+    }
   }
 }
