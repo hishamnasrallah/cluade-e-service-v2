@@ -152,8 +152,12 @@ export class ChoiceFieldComponent implements ControlValueAccessor, OnInit, OnDes
     // Subscribe to value changes
     this.control.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(value => {
       console.log('📝 ChoiceField: Value changed for', this.field.name, ':', value);
-      this.onChange(value);
-      this.valueChange.emit(value);
+
+      // Format the value based on single vs multiple selection
+      const formattedValue = this.formatValueForEmission(value);
+
+      this.onChange(formattedValue);
+      this.valueChange.emit(formattedValue);
       this.onTouched();
     });
   }
@@ -161,6 +165,16 @@ export class ChoiceFieldComponent implements ControlValueAccessor, OnInit, OnDes
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private formatValueForEmission(value: any): any {
+    if (this.isMultiple()) {
+      // Multiple selection - ensure it's an array
+      return Array.isArray(value) ? value : (value ? [value] : []);
+    } else {
+      // Single selection - return the value directly (not as array)
+      return Array.isArray(value) ? (value.length > 0 ? value[0] : null) : value;
+    }
   }
 
   private setupValidation(): void {
@@ -264,7 +278,7 @@ export class ChoiceFieldComponent implements ControlValueAccessor, OnInit, OnDes
   }
 
   isMultiple(): boolean {
-    return this.field.max_selections !== 1;
+    return this.field.max_selections !== 1 && this.field.max_selections !== null && this.field.max_selections !== undefined;
   }
 
   getSelectionHint(): string {
@@ -284,7 +298,19 @@ export class ChoiceFieldComponent implements ControlValueAccessor, OnInit, OnDes
   // ControlValueAccessor implementation
   writeValue(value: any): void {
     console.log('✏️ ChoiceField: Setting value for', this.field.name, ':', value);
-    this.control.setValue(value, { emitEvent: false });
+
+    // Handle the value based on single vs multiple selection
+    let controlValue = value;
+
+    if (this.isMultiple()) {
+      // Multiple selection - ensure it's an array
+      controlValue = Array.isArray(value) ? value : (value ? [value] : []);
+    } else {
+      // Single selection - extract from array if needed
+      controlValue = Array.isArray(value) ? (value.length > 0 ? value[0] : null) : value;
+    }
+
+    this.control.setValue(controlValue, { emitEvent: false });
   }
 
   registerOnChange(fn: (value: any) => void): void {

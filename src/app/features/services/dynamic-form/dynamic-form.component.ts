@@ -1,5 +1,5 @@
 // src/app/features/services/dynamic-form/dynamic-form.component.ts
-import { Component, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy, ChangeDetectorRef, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -79,7 +79,7 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
                   <app-text-field
                     *ngIf="isTextField(field)"
                     [field]="field"
-                    [value]="dynamicForm.get(field.name)?.value"
+                    [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-text-field>
 
@@ -87,7 +87,7 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
                   <app-number-field
                     *ngIf="isNumberField(field)"
                     [field]="field"
-                    [value]="dynamicForm.get(field.name)?.value"
+                    [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-number-field>
 
@@ -95,7 +95,7 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
                   <app-boolean-field
                     *ngIf="isBooleanField(field)"
                     [field]="field"
-                    [value]="dynamicForm.get(field.name)?.value"
+                    [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-boolean-field>
 
@@ -103,7 +103,7 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
                   <app-choice-field
                     *ngIf="isChoiceField(field)"
                     [field]="field"
-                    [value]="dynamicForm.get(field.name)?.value"
+                    [value]="getFieldValue(field.name)"
                     [staticOptions]="getStaticOptions(field)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-choice-field>
@@ -112,7 +112,7 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
                   <app-file-field
                     *ngIf="isFileField(field)"
                     [field]="field"
-                    [value]="dynamicForm.get(field.name)?.value"
+                    [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-file-field>
 
@@ -120,7 +120,7 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
                   <app-decimal-field
                     *ngIf="isDecimalField(field)"
                     [field]="field"
-                    [value]="dynamicForm.get(field.name)?.value"
+                    [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-decimal-field>
 
@@ -128,7 +128,7 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
                   <app-percentage-field
                     *ngIf="isPercentageField(field)"
                     [field]="field"
-                    [value]="dynamicForm.get(field.name)?.value"
+                    [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-percentage-field>
                 </div>
@@ -137,6 +137,48 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
           </mat-expansion-panel>
         </div>
       </form>
+
+      <!-- Debug Panel (only when enabled) -->
+      <div class="debug-panel" *ngIf="debugMode">
+        <mat-expansion-panel>
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-icon>bug_report</mat-icon>
+              Debug Information
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <div class="debug-content">
+            <h5>Complete Wizard Form Data:</h5>
+            <pre>{{ formData | json }}</pre>
+
+            <h5>Current Step Form Data:</h5>
+            <pre>{{ dynamicForm.value | json }}</pre>
+
+            <h5>Visible Fields by Category:</h5>
+            <ul>
+              <li *ngFor="let category of categories">
+                <strong>{{ category.name }}:</strong>
+                <span *ngFor="let field of getVisibleFields(category.fields); let last = last">
+                  {{ field.name }}<span *ngIf="!last">, </span>
+                </span>
+                <em *ngIf="getVisibleFields(category.fields).length === 0">(no visible fields)</em>
+              </li>
+            </ul>
+
+            <div class="debug-actions">
+              <button mat-button (click)="debugVisibilityConditions()">
+                <mat-icon>visibility</mat-icon>
+                Debug Visibility Conditions
+              </button>
+              <button mat-button (click)="toggleDebug()">
+                <mat-icon>close</mat-icon>
+                Hide Debug
+              </button>
+            </div>
+          </div>
+        </mat-expansion-panel>
+      </div>
     </div>
   `,
   styles: [`
@@ -188,27 +230,89 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
       min-height: 80px; /* Reserve space for loading states */
     }
 
+    .debug-panel {
+      margin-top: 24px;
+      border: 2px dashed #dee2e6;
+      border-radius: 8px;
+      background: #f8f9fa;
+    }
+
+    .debug-content {
+      padding: 16px;
+    }
+
+    .debug-content h5 {
+      margin: 16px 0 8px 0;
+      color: #495057;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .debug-content h5:first-child {
+      margin-top: 0;
+    }
+
+    .debug-content pre {
+      background: white;
+      padding: 12px;
+      border-radius: 4px;
+      border: 1px solid #ced4da;
+      overflow-x: auto;
+      font-size: 11px;
+      max-height: 200px;
+      margin: 8px 0 16px 0;
+    }
+
+    .debug-content ul {
+      margin: 8px 0 16px 0;
+      padding-left: 20px;
+      font-size: 13px;
+    }
+
+    .debug-content li {
+      margin-bottom: 8px;
+    }
+
+    .debug-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #dee2e6;
+    }
+
+    .debug-actions button {
+      font-size: 12px;
+    }
+
     /* Responsive design */
     @media (max-width: 768px) {
       .fields-grid {
         grid-template-columns: 1fr;
         gap: 16px;
       }
+
+      .debug-actions {
+        flex-direction: column;
+      }
     }
   `]
 })
 export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
   @Input() categories: ServiceFlowCategory[] = [];
-  @Input() formData: any = {};
+  @Input() formData: any = {}; // This comes from the wizard with complete data
   @Output() formChange = new EventEmitter<any>();
 
   dynamicForm: FormGroup;
+  debugMode = false; // Hidden by default
+
   private destroy$ = new Subject<void>();
   private loadingCategories = new Set<number>();
 
   constructor(
     private fb: FormBuilder,
-    private apiService: ApiService
+    private apiService: ApiService,
+    private cdr: ChangeDetectorRef
   ) {
     this.dynamicForm = this.fb.group({});
     console.log('🏗️ DynamicForm: Component created');
@@ -219,9 +323,20 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
     this.buildForm();
   }
 
-  ngOnChanges(): void {
+  ngOnChanges(changes: SimpleChanges): void {
     console.log('🔄 DynamicForm: Input changes detected');
-    this.buildForm();
+
+    if (changes['formData']) {
+      // Update form controls with new values
+      this.updateFormControls();
+
+      // Force change detection to re-evaluate visibility
+      this.cdr.detectChanges();
+    }
+
+    if (changes['categories']) {
+      this.buildForm();
+    }
   }
 
   ngOnDestroy(): void {
@@ -235,8 +350,6 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
     const formControls: any = {};
 
     this.categories.forEach(category => {
-      console.log('📂 DynamicForm: Processing category:', category.name, 'with', category.fields.length, 'fields');
-
       category.fields.forEach((field: ServiceFlowField) => {
         const defaultValue = this.getDefaultValue(field);
         const currentValue = this.formData[field.name];
@@ -256,11 +369,25 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
     this.dynamicForm.valueChanges.pipe(
       takeUntil(this.destroy$)
     ).subscribe(value => {
-      console.log('📊 DynamicForm: Form value changed:', Object.keys(value).length, 'fields');
+      console.log('📊 DynamicForm: Internal form value changed');
       this.formChange.emit(value);
     });
 
     console.log('✅ DynamicForm: Form built with', Object.keys(formControls).length, 'controls');
+  }
+
+  updateFormControls(): void {
+    if (!this.formData) return;
+
+    Object.keys(this.formData).forEach(fieldName => {
+      const control = this.dynamicForm.get(fieldName);
+      if (control) {
+        const newValue = this.formData[fieldName];
+        if (control.value !== newValue) {
+          control.setValue(newValue, { emitEvent: false });
+        }
+      }
+    });
   }
 
   getDefaultValue(field: ServiceFlowField): any {
@@ -283,33 +410,66 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
   onFieldChange(fieldName: string, value: any): void {
     console.log('🔧 DynamicForm: Field changed:', fieldName, '=', value);
 
-    // Update form control without triggering valueChanges
-    this.dynamicForm.get(fieldName)?.setValue(value, { emitEvent: false });
+    // Update form control
+    this.dynamicForm.get(fieldName)?.setValue(value, { emitEvent: true });
+  }
 
-    // Emit the complete form data
-    this.formChange.emit(this.dynamicForm.value);
+  getFieldValue(fieldName: string): any {
+    // Always use the input formData which has the complete wizard data
+    return this.formData[fieldName];
+  }
+
+  toggleDebug(): void {
+    this.debugMode = !this.debugMode;
+  }
+
+  isFieldVisible(field: ServiceFlowField): boolean {
+    // Skip explicitly hidden fields
+    if (field.is_hidden) {
+      return false;
+    }
+
+    // Check visibility conditions using the INPUT formData (complete wizard data)
+    if (field.visibility_conditions && field.visibility_conditions.length > 0) {
+      // ALL visibility conditions must be met for the field to be visible
+      const isVisible = field.visibility_conditions.every((condition: any) => {
+        return evaluateVisibilityCondition(condition, this.formData);
+      });
+
+      return isVisible;
+    }
+
+    // No conditions means visible by default
+    return true;
   }
 
   getVisibleFields(fields: ServiceFlowField[]): ServiceFlowField[] {
-    return fields.filter(field => {
-      // Skip hidden fields
-      if (field.is_hidden) {
-        return false;
-      }
+    return fields.filter(field => this.isFieldVisible(field));
+  }
 
-      // Check visibility conditions
-      if (field.visibility_conditions && field.visibility_conditions.length > 0) {
-        const isVisible = field.visibility_conditions.some((condition: any) =>
-          evaluateVisibilityCondition(condition, this.dynamicForm.value)
-        );
+  debugVisibilityConditions(): void {
+    console.log('=== DYNAMIC FORM VISIBILITY DEBUG ===');
+    console.log('Input form data:', this.formData);
+    console.log('Internal form data:', this.dynamicForm.value);
 
-        if (!isVisible) {
-          console.log('👁️ DynamicForm: Field hidden by conditions:', field.name);
-          return false;
+    this.categories.forEach(category => {
+      console.log(`\n--- Category: ${category.name} ---`);
+
+      category.fields.forEach(field => {
+        if (field.visibility_conditions && field.visibility_conditions.length > 0) {
+          console.log(`\nField: ${field.name}`);
+          console.log('Visibility conditions:', field.visibility_conditions);
+          console.log('Field value in form data:', this.formData[field.name]);
+          console.log('Is visible:', this.isFieldVisible(field));
+
+          field.visibility_conditions.forEach((condition, condIndex) => {
+            const conditionResult = evaluateVisibilityCondition(condition, this.formData);
+            console.log(`Condition ${condIndex} result:`, conditionResult);
+          });
+        } else {
+          console.log(`Field: ${field.name} - No visibility conditions, visible:`, this.isFieldVisible(field));
         }
-      }
-
-      return true;
+      });
     });
   }
 
@@ -317,7 +477,6 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
     // Only return static options if there's no lookup ID
     // If there's a lookup ID, the choice field component will handle the API call
     if (!field.lookup && field.allowed_lookups && field.allowed_lookups.length > 0) {
-      console.log('📋 DynamicForm: Providing static options for', field.name, ':', field.allowed_lookups.length);
       return field.allowed_lookups;
     }
 
@@ -446,7 +605,7 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
 
   // Get form data for submission
   getFormData(): any {
-    const formData = { ...this.dynamicForm.value };
+    const formData = { ...this.formData };
 
     // Process form data according to field types
     this.categories.forEach(category => {
@@ -455,23 +614,58 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
 
         if (value !== undefined && value !== null) {
           switch (field.field_type) {
-            case 'number':
-            case 'decimal':
-              if (typeof value === 'string' && value.trim() !== '') {
-                formData[field.name] = Number(value);
+            case 'choice':
+              // Handle choice fields properly based on max_selections
+              if (field.max_selections === 1 || !field.max_selections) {
+                // Single selection - extract value from array if needed
+                if (Array.isArray(value)) {
+                  formData[field.name] = value.length > 0 ? value[0] : null;
+                } else {
+                  formData[field.name] = value;
+                }
+              } else {
+                // Multiple selection - ensure it's an array
+                if (!Array.isArray(value)) {
+                  formData[field.name] = value ? [value] : [];
+                }
               }
               break;
+
+            case 'number':
+            case 'decimal':
+            case 'percentage':
+              if (typeof value === 'string' && value.trim() !== '') {
+                formData[field.name] = Number(value);
+              } else if (value === '' || value === null) {
+                formData[field.name] = null;
+              }
+              break;
+
             case 'boolean':
               formData[field.name] = Boolean(value);
               break;
-            case 'choice':
-              // Ensure choice values are properly formatted
-              if (field.max_selections === 1 && Array.isArray(value)) {
-                formData[field.name] = value[0] || null;
-              } else if (field.max_selections !== 1 && !Array.isArray(value)) {
-                formData[field.name] = value ? [value] : [];
+
+            case 'text':
+              if (typeof value === 'string') {
+                formData[field.name] = value.trim();
               }
               break;
+
+            case 'file':
+              // Files are handled separately in the API service
+              break;
+
+            default:
+              // Keep other field types as-is
+              formData[field.name] = value;
+              break;
+          }
+        } else {
+          // Handle null/undefined values
+          if (field.field_type === 'choice' && (field.max_selections === 1 || !field.max_selections)) {
+            formData[field.name] = null;
+          } else if (field.field_type === 'choice') {
+            formData[field.name] = [];
           }
         }
       });
@@ -479,5 +673,4 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
 
     console.log('📤 DynamicForm: Prepared form data for submission:', formData);
     return formData;
-  }
-}
+  }}

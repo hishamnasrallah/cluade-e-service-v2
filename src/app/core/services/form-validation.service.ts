@@ -1,7 +1,15 @@
-// src/app/services/form-validation.service.ts
+// src/app/core/services/form-validation.service.ts
 import { Injectable } from '@angular/core';
 import { AbstractControl, ValidatorFn, ValidationErrors } from '@angular/forms';
-import { ServiceFlowField, ConditionRule, evaluateConditionRule } from '../models/interfaces';
+import {
+  ServiceFlowField,
+  ConditionRule,
+  evaluateConditionRule,
+  evaluateVisibilityCondition,
+  formatChoiceValue,
+  validateChoiceField,
+  processFormDataForSubmission
+} from '../models/interfaces';
 
 @Injectable({
   providedIn: 'root'
@@ -16,9 +24,11 @@ export class FormValidationService {
   createFieldValidators(field: ServiceFlowField): ValidatorFn[] {
     const validators: ValidatorFn[] = [];
 
+    console.log('🔧 FormValidation: Creating validators for field:', field.name, 'Type:', field.field_type);
+
     // Required validator
     if (field.mandatory) {
-      validators.push(this.requiredValidator());
+      validators.push(this.requiredValidator(field));
     }
 
     // Text field validators
@@ -61,12 +71,7 @@ export class FormValidationService {
 
     // Choice field validators
     if (field.field_type === 'choice') {
-      if (field.min_selections) {
-        validators.push(this.minSelectionsValidator(field.min_selections));
-      }
-      if (field.max_selections) {
-        validators.push(this.maxSelectionsValidator(field.max_selections));
-      }
+      validators.push(this.choiceFieldValidator(field));
     }
 
     // File field validators
@@ -82,6 +87,7 @@ export class FormValidationService {
       }
     }
 
+    console.log('✅ FormValidation: Created', validators.length, 'validators for field:', field.name);
     return validators;
   }
 
@@ -93,12 +99,17 @@ export class FormValidationService {
       return !field.is_hidden;
     }
 
-    // Evaluate all visibility conditions (AND logic)
-    return field.visibility_conditions.every(condition => {
-      return condition.condition_logic.every(rule =>
-        evaluateConditionRule(rule, formData)
-      );
-    });
+    console.log('👁️ FormValidation: Evaluating visibility for field:', field.name, 'Conditions:', field.visibility_conditions);
+
+    // Evaluate all visibility conditions (AND logic between multiple conditions)
+    const isVisible = field.visibility_conditions.every(condition =>
+        evaluateVisibilityCondition(condition, formData)
+    );
+
+    const finalVisibility = isVisible && !field.is_hidden;
+    console.log('👁️ FormValidation: Final visibility for', field.name, ':', finalVisibility);
+
+    return finalVisibility;
   }
 
   /**
@@ -152,12 +163,10 @@ export class FormValidationService {
       messages.push(`${fieldName} contains forbidden words`);
     }
 
-    if (errors['minSelections']) {
-      messages.push(`Select at least ${errors['minSelections'].min} options for ${fieldName}`);
-    }
-
-    if (errors['maxSelections']) {
-      messages.push(`Select at most ${errors['maxSelections'].max} options for ${fieldName}`);
+    if (errors['choiceValidation']) {
+      // Choice field validation errors are handled specially
+      const choiceErrors = errors['choiceValidation'].errors || [];
+      messages.push(...choiceErrors);
     }
 
     if (errors['fileSize']) {
@@ -176,62 +185,83 @@ export class FormValidationService {
   }
 
   /**
-   * Format form data for submission
+   * Format form data for submission with enhanced type handling
    */
   formatFormDataForSubmission(formData: any, fields: ServiceFlowField[]): any {
-    const formatted: any = {};
-
-    fields.forEach(field => {
-      const value = formData[field.name];
-
-      if (value === null || value === undefined) {
-        return;
-      }
-
-      switch (field.field_type) {
-        case 'number':
-        case 'decimal':
-        case 'percentage':
-          formatted[field.name] = this.formatNumberValue(value, field);
-          break;
-
-        case 'boolean':
-          formatted[field.name] = Boolean(value);
-          break;
-
-        case 'choice':
-          formatted[field.name] = this.formatChoiceValue(value, field);
-          break;
-
-        case 'file':
-          // Files are handled separately
-          if (value instanceof File) {
-            formatted[field.name] = value;
-          }
-          break;
-
-        default:
-          formatted[field.name] = String(value).trim();
-      }
-    });
-
-    return formatted;
+    console.log('📦 FormValidation: Formatting form data for submission');
+    return processFormDataForSubmission(formData, fields);
   }
 
-  // Private validator methods
-  private requiredValidator(): ValidatorFn {
+  // Enhanced private validator methods
+
+  private requiredValidator(field: ServiceFlowField): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
-      if (!control.value || (typeof control.value === 'string' && control.value.trim() === '')) {
+      const value = control.value;
+
+      // Enhanced empty value checking based on field type
+      if (this.isValueEmpty(value, field.field_type)) {
         return { required: true };
       }
+
+      return null;
+    };
+  }
+
+  private isValueEmpty(value: any, fieldType: string): boolean {
+    if (value === null || value === undefined) {
+      return true;
+    }
+
+    switch (fieldType) {
+      case 'text':
+        return typeof value === 'string' && value.trim() === '';
+
+      case 'choice':
+        return Array.isArray(value) ? value.length === 0 : (value === '' || value === null);
+
+      case 'file':
+        return !(value instanceof File);
+
+      case 'number':
+      case 'decimal':
+      case 'percentage':
+        return value === '' || (typeof value === 'string' && value.trim() === '');
+
+      case 'boolean':
+        return false; // Boolean fields are never empty
+
+      default:
+        return value === '' || (typeof value === 'string' && value.trim() === '');
+    }
+  }
+
+  private choiceFieldValidator(field: ServiceFlowField): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const value = control.value;
+
+      console.log('🔍 FormValidation: Validating choice field:', field.name, 'Value:', value);
+
+      // Use the enhanced choice field validation
+      const validation = validateChoiceField(value, field);
+
+      if (!validation.isValid) {
+        return {
+          choiceValidation: {
+            errors: validation.errors,
+            field: field.name
+          }
+        };
+      }
+
       return null;
     };
   }
 
   private minLengthValidator(minLength: number): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
-      if (control.value && control.value.length < minLength) {
-        return { minlength: { requiredLength: minLength, actualLength: control.value.length } };
+      const value = control.value;
+      if (value && value.length < minLength) {
+        return { minlength: { requiredLength: minLength, actualLength: value.length } };
       }
       return null;
     };
@@ -239,8 +269,9 @@ export class FormValidationService {
 
   private maxLengthValidator(maxLength: number): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
-      if (control.value && control.value.length > maxLength) {
-        return { maxlength: { requiredLength: maxLength, actualLength: control.value.length } };
+      const value = control.value;
+      if (value && value.length > maxLength) {
+        return { maxlength: { requiredLength: maxLength, actualLength: value.length } };
       }
       return null;
     };
@@ -256,7 +287,7 @@ export class FormValidationService {
           return { pattern: { requiredPattern: pattern, actualValue: control.value } };
         }
       } catch (error) {
-        console.error('Invalid regex pattern:', pattern);
+        console.error('❌ FormValidation: Invalid regex pattern:', pattern, error);
       }
       return null;
     };
@@ -266,19 +297,27 @@ export class FormValidationService {
     return (control: AbstractControl): ValidationErrors | null => {
       if (!control.value) return null;
 
-      const allowedPattern = new RegExp(`^[${allowedChars}]*$`);
-      if (!allowedPattern.test(control.value)) {
-        return { allowedCharacters: { allowedChars, actualValue: control.value } };
+      try {
+        const allowedPattern = new RegExp(`^[${this.escapeRegExp(allowedChars)}]*$`);
+        if (!allowedPattern.test(control.value)) {
+          return { allowedCharacters: { allowedChars, actualValue: control.value } };
+        }
+      } catch (error) {
+        console.error('❌ FormValidation: Invalid allowed characters pattern:', allowedChars, error);
       }
       return null;
     };
+  }
+
+  private escapeRegExp(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   private forbiddenWordsValidator(forbiddenWords: string): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
       if (!control.value || !forbiddenWords) return null;
 
-      const words = forbiddenWords.split(',').map(w => w.trim().toLowerCase());
+      const words = forbiddenWords.split(',').map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
       const value = control.value.toLowerCase();
 
       const foundWord = words.find(word => value.includes(word));
@@ -291,8 +330,11 @@ export class FormValidationService {
 
   private minValueValidator(minValue: number): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
-      if (control.value !== null && control.value !== undefined && control.value <= minValue) {
-        return { min: { min: minValue, actual: control.value } };
+      if (control.value !== null && control.value !== undefined && control.value !== '') {
+        const numValue = Number(control.value);
+        if (!isNaN(numValue) && numValue <= minValue) {
+          return { min: { min: minValue, actual: numValue } };
+        }
       }
       return null;
     };
@@ -300,8 +342,11 @@ export class FormValidationService {
 
   private maxValueValidator(maxValue: number): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
-      if (control.value !== null && control.value !== undefined && control.value >= maxValue) {
-        return { max: { max: maxValue, actual: control.value } };
+      if (control.value !== null && control.value !== undefined && control.value !== '') {
+        const numValue = Number(control.value);
+        if (!isNaN(numValue) && numValue >= maxValue) {
+          return { max: { max: maxValue, actual: numValue } };
+        }
       }
       return null;
     };
@@ -309,9 +354,9 @@ export class FormValidationService {
 
   private integerValidator(): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
-      if (control.value !== null && control.value !== undefined) {
+      if (control.value !== null && control.value !== undefined && control.value !== '') {
         const num = Number(control.value);
-        if (!Number.isInteger(num)) {
+        if (!isNaN(num) && !Number.isInteger(num)) {
           return { integer: true };
         }
       }
@@ -321,8 +366,11 @@ export class FormValidationService {
 
   private positiveNumberValidator(): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
-      if (control.value !== null && control.value !== undefined && control.value <= 0) {
-        return { positive: true };
+      if (control.value !== null && control.value !== undefined && control.value !== '') {
+        const num = Number(control.value);
+        if (!isNaN(num) && num <= 0) {
+          return { positive: true };
+        }
       }
       return null;
     };
@@ -330,7 +378,7 @@ export class FormValidationService {
 
   private precisionValidator(maxPrecision: number): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
-      if (control.value !== null && control.value !== undefined) {
+      if (control.value !== null && control.value !== undefined && control.value !== '') {
         const str = control.value.toString();
         const decimalIndex = str.indexOf('.');
         if (decimalIndex !== -1) {
@@ -339,24 +387,6 @@ export class FormValidationService {
             return { precision: { maxPrecision, actualPrecision: decimalPlaces } };
           }
         }
-      }
-      return null;
-    };
-  }
-
-  private minSelectionsValidator(minSelections: number): ValidatorFn {
-    return (control: AbstractControl): ValidationErrors | null => {
-      if (Array.isArray(control.value) && control.value.length < minSelections) {
-        return { minSelections: { min: minSelections, actual: control.value.length } };
-      }
-      return null;
-    };
-  }
-
-  private maxSelectionsValidator(maxSelections: number): ValidatorFn {
-    return (control: AbstractControl): ValidationErrors | null => {
-      if (Array.isArray(control.value) && control.value.length > maxSelections) {
-        return { maxSelections: { max: maxSelections, actual: control.value.length } };
       }
       return null;
     };
@@ -374,11 +404,17 @@ export class FormValidationService {
   private fileTypeValidator(allowedTypes: string): ValidatorFn {
     return (control: AbstractControl): ValidationErrors | null => {
       if (control.value instanceof File) {
-        const allowedTypesArray = allowedTypes.split(',').map(t => t.trim());
+        const allowedTypesArray = allowedTypes.split(',').map(t => t.trim().toLowerCase());
         const fileExtension = '.' + control.value.name.split('.').pop()?.toLowerCase();
+        const mimeType = control.value.type.toLowerCase();
 
-        if (!allowedTypesArray.includes(fileExtension)) {
-          return { fileType: { allowedTypes, actualType: fileExtension } };
+        // Check both file extension and MIME type
+        const isValidExtension = allowedTypesArray.some(type =>
+            type.startsWith('.') ? type === fileExtension : mimeType.includes(type)
+        );
+
+        if (!isValidExtension) {
+          return { fileType: { allowedTypes, actualType: fileExtension, actualMimeType: mimeType } };
         }
       }
       return null;
@@ -391,13 +427,25 @@ export class FormValidationService {
         return new Promise((resolve) => {
           const img = new Image();
           img.onload = () => {
+            URL.revokeObjectURL(img.src); // Clean up
+
             if ((maxWidth && img.width > maxWidth) || (maxHeight && img.height > maxHeight)) {
-              resolve({ imageDimensions: { maxWidth, maxHeight, actualWidth: img.width, actualHeight: img.height } });
+              resolve({
+                imageDimensions: {
+                  maxWidth,
+                  maxHeight,
+                  actualWidth: img.width,
+                  actualHeight: img.height
+                }
+              });
             } else {
               resolve(null);
             }
           };
-          img.onerror = () => resolve(null);
+          img.onerror = () => {
+            URL.revokeObjectURL(img.src); // Clean up
+            resolve({ imageDimensions: { error: 'Unable to load image' } });
+          };
           img.src = URL.createObjectURL(control.value);
         });
       }
@@ -410,68 +458,44 @@ export class FormValidationService {
     return ['number', 'decimal', 'percentage'].includes(field.field_type);
   }
 
-  private formatNumberValue(value: any, field: ServiceFlowField): number | null {
-    if (value === null || value === undefined || value === '') {
-      return null;
-    }
-
-    const num = Number(value);
-    if (isNaN(num)) {
-      return null;
-    }
-
-    if (field.integer_only) {
-      return Math.floor(num);
-    }
-
-    if (field.precision !== undefined && field.precision !== null) {
-      return Number(num.toFixed(field.precision));
-    }
-
-    return num;
-  }
-
-  private formatChoiceValue(value: any, field: ServiceFlowField): any {
-    if (field.max_selections === 1) {
-      return value;
-    } else {
-      return Array.isArray(value) ? value : [value];
-    }
-  }
-
   private formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
 
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   /**
-   * Validate entire form step
+   * Validate entire form step with enhanced logic
    */
   validateFormStep(formData: any, fields: ServiceFlowField[]): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
     let isValid = true;
 
+    console.log('✅ FormValidation: Validating form step with', fields.length, 'fields');
+
     fields.forEach(field => {
       const value = formData[field.name];
 
-      // Skip hidden fields
+      // Skip hidden fields and evaluate visibility conditions
       if (field.is_hidden || !this.evaluateFieldVisibility(field, formData)) {
+        console.log('⏭️ FormValidation: Skipping hidden/invisible field:', field.name);
         return;
       }
 
-      // Check required fields
-      if (field.mandatory && (!value || (typeof value === 'string' && value.trim() === ''))) {
+      console.log('🔍 FormValidation: Validating field:', field.name, 'Value:', value);
+
+      // Check required fields with enhanced empty checking
+      if (field.mandatory && this.isValueEmpty(value, field.field_type)) {
         errors.push(`${field.display_name || field.name} is required`);
         isValid = false;
       }
 
       // Additional validation based on field type
-      if (value) {
+      if (!this.isValueEmpty(value, field.field_type)) {
         const fieldErrors = this.validateFieldValue(value, field);
         if (fieldErrors.length > 0) {
           errors.push(...fieldErrors);
@@ -480,11 +504,12 @@ export class FormValidationService {
       }
     });
 
+    console.log('✅ FormValidation: Step validation result:', { isValid, errors });
     return { isValid, errors };
   }
 
   /**
-   * Validate individual field value
+   * Validate individual field value with enhanced type handling
    */
   private validateFieldValue(value: any, field: ServiceFlowField): string[] {
     const errors: string[] = [];
@@ -505,7 +530,25 @@ export class FormValidationService {
               errors.push(`${fieldName} format is invalid`);
             }
           } catch (error) {
-            console.error('Invalid regex pattern:', field.regex_pattern);
+            console.error('❌ FormValidation: Invalid regex pattern:', field.regex_pattern);
+          }
+        }
+        if (field.allowed_characters) {
+          try {
+            const allowedPattern = new RegExp(`^[${this.escapeRegExp(field.allowed_characters)}]*$`);
+            if (!allowedPattern.test(value)) {
+              errors.push(`${fieldName} contains invalid characters`);
+            }
+          } catch (error) {
+            console.error('❌ FormValidation: Invalid allowed characters:', field.allowed_characters);
+          }
+        }
+        if (field.forbidden_words) {
+          const words = field.forbidden_words.split(',').map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
+          const lowerValue = value.toLowerCase();
+          const foundWord = words.find(word => lowerValue.includes(word));
+          if (foundWord) {
+            errors.push(`${fieldName} contains forbidden word: ${foundWord}`);
           }
         }
         break;
@@ -529,16 +572,46 @@ export class FormValidationService {
           if (field.positive_only && num <= 0) {
             errors.push(`${fieldName} must be positive`);
           }
+          if (field.precision !== undefined && field.precision !== null) {
+            const str = num.toString();
+            const decimalIndex = str.indexOf('.');
+            if (decimalIndex !== -1) {
+              const decimalPlaces = str.length - decimalIndex - 1;
+              if (decimalPlaces > field.precision) {
+                errors.push(`${fieldName} can have at most ${field.precision} decimal places`);
+              }
+            }
+          }
         }
         break;
 
       case 'choice':
-        if (Array.isArray(value)) {
-          if (field.min_selections && value.length < field.min_selections) {
-            errors.push(`Select at least ${field.min_selections} options for ${fieldName}`);
+        const validation = validateChoiceField(value, field);
+        if (!validation.isValid) {
+          errors.push(...validation.errors);
+        }
+        break;
+
+      case 'file':
+        if (!(value instanceof File)) {
+          errors.push(`${fieldName} must be a valid file`);
+        } else {
+          if (field.max_file_size && value.size > field.max_file_size) {
+            errors.push(`${fieldName} file size must be less than ${this.formatFileSize(field.max_file_size)}`);
           }
-          if (field.max_selections && value.length > field.max_selections) {
-            errors.push(`Select at most ${field.max_selections} options for ${fieldName}`);
+
+          if (field.file_types) {
+            const allowedTypesArray = field.file_types.split(',').map(t => t.trim().toLowerCase());
+            const fileExtension = '.' + value.name.split('.').pop()?.toLowerCase();
+            const mimeType = value.type.toLowerCase();
+
+            const isValidType = allowedTypesArray.some(type =>
+                type.startsWith('.') ? type === fileExtension : mimeType.includes(type)
+            );
+
+            if (!isValidType) {
+              errors.push(`${fieldName} file type is not allowed. Allowed types: ${field.file_types}`);
+            }
           }
         }
         break;

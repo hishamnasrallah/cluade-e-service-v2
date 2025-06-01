@@ -127,13 +127,26 @@ import {
                 </mat-card>
               </div>
 
-              <!-- Dynamic Form -->
+              <!-- Dynamic Form with Complete Form Data -->
               <div class="form-container">
                 <app-dynamic-form
                   [categories]="step.categories"
                   [formData]="wizardState.formData"
                   (formChange)="onFormChange($event)">
                 </app-dynamic-form>
+              </div>
+
+              <!-- Debug Panel -->
+              <div class="debug-panel" *ngIf="debugMode">
+                <h4>Wizard Form Data Debug</h4>
+                <div class="debug-content">
+                  <h5>Complete Wizard Form Data:</h5>
+                  <pre>{{ wizardState.formData | json }}</pre>
+                  <h5>Current Step Fields:</h5>
+                  <pre>{{ getCurrentStepFieldNames() | json }}</pre>
+                  <button mat-button (click)="debugVisibilityConditions()">Debug Visibility</button>
+                  <button mat-button (click)="debugMode = false">Hide Debug</button>
+                </div>
               </div>
 
               <!-- Form Validation Messages -->
@@ -169,6 +182,13 @@ import {
                         class="draft-btn">
                   <mat-icon>save</mat-icon>
                   Save Draft
+                </button>
+
+                <button mat-button
+                        (click)="debugMode = !debugMode"
+                        class="debug-btn">
+                  <mat-icon>bug_report</mat-icon>
+                  {{ debugMode ? 'Hide' : 'Show' }} Debug
                 </button>
 
                 <button mat-raised-button
@@ -344,6 +364,35 @@ import {
       margin-bottom: 24px;
     }
 
+    .debug-panel {
+      margin-bottom: 24px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+    }
+
+    .debug-panel h4, .debug-panel h5 {
+      margin: 0 0 12px 0;
+      color: #495057;
+    }
+
+    .debug-content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .debug-panel pre {
+      background: white;
+      padding: 12px;
+      border-radius: 4px;
+      border: 1px solid #ced4da;
+      overflow-x: auto;
+      font-size: 12px;
+      max-height: 200px;
+    }
+
     .validation-messages {
       margin-bottom: 24px;
     }
@@ -400,6 +449,15 @@ import {
 
     .draft-btn:hover {
       background: rgba(23, 162, 184, 0.1);
+    }
+
+    .debug-btn {
+      color: #6f42c1;
+      border: 1px solid #6f42c1;
+    }
+
+    .debug-btn:hover {
+      background: rgba(111, 66, 193, 0.1);
     }
 
     .next-btn {
@@ -460,6 +518,7 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
   isLoading = false;
   isSubmitting = false;
   error: string | null = null;
+  debugMode = false; // Enable this to see debug information
 
   wizardState: WizardState = {
     currentStep: 0,
@@ -539,6 +598,9 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
 
     console.log('📊 ServiceWizard: Visible steps:', this.wizardState.totalSteps);
 
+    // Initialize form data with default values for ALL fields across ALL steps
+    this.initializeCompleteFormData();
+
     // Create form controls for each step
     this.stepForms = [];
     this.serviceFlowSteps.forEach((step, index) => {
@@ -548,6 +610,27 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
 
     // Validate initial step
     this.validateCurrentStep();
+  }
+
+  // NEW: Initialize form data with all fields from all steps
+  initializeCompleteFormData(): void {
+    console.log('🏗️ ServiceWizard: Initializing complete form data...');
+
+    const completeFormData: any = {};
+
+    // Process all steps to get all field names and default values
+    this.serviceFlowSteps.forEach(step => {
+      step.categories.forEach(category => {
+        category.fields.forEach(field => {
+          const defaultValue = this.getDefaultValue(field);
+          completeFormData[field.name] = defaultValue;
+          console.log(`📝 ServiceWizard: Initialized field ${field.name} = ${defaultValue} (${field.field_type})`);
+        });
+      });
+    });
+
+    this.wizardState.formData = completeFormData;
+    console.log('✅ ServiceWizard: Complete form data initialized:', this.wizardState.formData);
   }
 
   createStepForm(step: ServiceFlowStep): FormGroup {
@@ -608,12 +691,59 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
       .replace(/\r/g, '<br>');
   }
 
+  // UPDATED: Ensure form data is merged properly across all steps
   onFormChange(formData: any): void {
-    console.log('📝 ServiceWizard: Form data changed:', Object.keys(formData).length, 'fields');
-    Object.assign(this.wizardState.formData, formData);
+    console.log('📝 ServiceWizard: Form data changed:', formData);
+
+    // Merge the changed data with existing wizard form data
+    this.wizardState.formData = {
+      ...this.wizardState.formData,
+      ...formData
+    };
+
+    console.log('📊 ServiceWizard: Complete wizard form data:', this.wizardState.formData);
 
     // Validate current step when form changes
     this.validateCurrentStep();
+  }
+
+  getCurrentStepFieldNames(): string[] {
+    if (!this.currentStep) return [];
+
+    const fieldNames: string[] = [];
+    this.currentStep.categories.forEach(category => {
+      category.fields.forEach(field => {
+        fieldNames.push(field.name);
+      });
+    });
+    return fieldNames;
+  }
+
+  debugVisibilityConditions(): void {
+    console.log('=== DEBUGGING VISIBILITY CONDITIONS ===');
+    console.log('Complete wizard form data:', this.wizardState.formData);
+
+    if (!this.currentStep) return;
+
+    console.log(`\n--- Current Step: ${this.currentStep.name} ---`);
+
+    this.currentStep.categories.forEach(category => {
+      console.log(`\n--- Category: ${category.name} ---`);
+
+      category.fields.forEach(field => {
+        if (field.visibility_conditions && field.visibility_conditions.length > 0) {
+          console.log(`\nField: ${field.name}`);
+          console.log('Visibility conditions:', field.visibility_conditions);
+
+          field.visibility_conditions.forEach((condition, condIndex) => {
+            console.log(`Evaluating condition ${condIndex}:`, condition);
+            // You can import and use debugEvaluateVisibilityCondition here if needed
+          });
+        } else {
+          console.log(`Field: ${field.name} - No visibility conditions`);
+        }
+      });
+    });
   }
 
   validateCurrentStep(): void {
