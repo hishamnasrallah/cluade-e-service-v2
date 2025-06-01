@@ -173,21 +173,32 @@ export class AppComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    console.log('🚀 AppComponent: Initializing...');
+
     // Subscribe to authentication status
     this.authService.isAuthenticated$.subscribe((isAuth: boolean) => {
       this.isAuthenticated = isAuth;
       this.showConfigButton = isAuth || this.configService.isConfigured();
+      console.log('🔐 AppComponent: Auth status changed:', isAuth);
     });
 
-    // Initial navigation logic
-    this.handleInitialNavigation();
+    // Initial navigation logic - delay to avoid routing conflicts
+    setTimeout(() => {
+      this.handleInitialNavigation();
+    }, 100);
   }
 
   private handleInitialNavigation(): void {
+    console.log('🧭 AppComponent: Handling initial navigation...');
+
     if (!this.configService.isConfigured()) {
+      console.log('⚙️ AppComponent: App not configured, redirecting to config');
       this.router.navigate(['/config']);
     } else if (!this.authService.isAuthenticated()) {
+      console.log('🔐 AppComponent: User not authenticated, redirecting to login');
       this.router.navigate(['/login']);
+    } else {
+      console.log('✅ AppComponent: User authenticated, staying on current route');
     }
   }
 

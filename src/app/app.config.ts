@@ -7,7 +7,7 @@ import {
   HTTP_INTERCEPTORS
 } from '@angular/common/http';
 import { provideZoneChangeDetection } from '@angular/core';
-import { provideAnimations } from '@angular/platform-browser/animations';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 // Import Material modules that need to be provided globally
 import { MatSnackBarModule } from '@angular/material/snack-bar';
@@ -32,8 +32,8 @@ export const appConfig: ApplicationConfig = {
     // HTTP Client with interceptors
     provideHttpClient(withInterceptorsFromDi()),
 
-    // Animations for Material UI
-    provideAnimations(),
+    // Animations for Material UI - Use importProvidersFrom instead of provideAnimations
+    importProvidersFrom(BrowserAnimationsModule),
 
     // Import Material modules globally
     importProvidersFrom(MatSnackBarModule),

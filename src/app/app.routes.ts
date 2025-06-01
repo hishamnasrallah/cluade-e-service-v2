@@ -2,16 +2,12 @@
 import { Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
 
-console.log('📍 Loading application routes...');
-
 export const routes: Routes = [
   // Configuration route - accessible without authentication
   {
     path: 'config',
     loadComponent: () => {
-      console.log('🔧 Loading configuration component...');
       return import('./features/configuration/configuration.component').then(m => {
-        console.log('✅ Configuration component loaded');
         return m.ConfigComponent;
       });
     }
@@ -21,9 +17,7 @@ export const routes: Routes = [
   {
     path: 'login',
     loadComponent: () => {
-      console.log('🔐 Loading login component...');
       return import('./features/auth/login/login.component').then(m => {
-        console.log('✅ Login component loaded');
         return m.LoginComponent;
       });
     }
@@ -33,9 +27,7 @@ export const routes: Routes = [
   {
     path: 'home',
     loadComponent: () => {
-      console.log('🏠 Loading home component...');
       return import('./features/home/home.component').then(m => {
-        console.log('✅ Home component loaded');
         return m.HomeComponent;
       });
     },
@@ -46,9 +38,7 @@ export const routes: Routes = [
   {
     path: 'services',
     loadComponent: () => {
-      console.log('🛠️ Loading services component...');
       return import('./features/services/services.component').then(m => {
-        console.log('✅ Services component loaded');
         return m.ServicesComponent;
       });
     },
@@ -59,9 +49,7 @@ export const routes: Routes = [
   {
     path: 'service-flow/:serviceCode/:serviceId',
     loadComponent: () => {
-      console.log('📋 Loading service wizard component...');
       return import('./features/services/service-wizard/service-wizard.component').then(m => {
-        console.log('✅ Service wizard component loaded');
         return m.ServiceWizardComponent;
       });
     },
@@ -72,9 +60,7 @@ export const routes: Routes = [
   {
     path: 'application/:id',
     loadComponent: () => {
-      console.log('📄 Loading application detail component...');
       return import('./features/applications/application-detail/application-detail.component').then(m => {
-        console.log('✅ Application detail component loaded');
         return m.ApplicationDetailComponent;
       });
     },
@@ -94,5 +80,3 @@ export const routes: Routes = [
     redirectTo: '/config'
   }
 ];
-
-console.log('✅ Application routes configured:', routes.length, 'routes');
