@@ -344,9 +344,17 @@ export function evaluateConditionRule(
   }
 
   const fieldValue = getFormFieldValue(formData, rule.field);
-  const ruleValue = rule.value;
 
-  console.log(`📝 Comparing field "${rule.field}": "${fieldValue}" ${rule.operation} "${ruleValue}"`);
+  // FIXED: Handle field-to-field comparisons
+  let ruleValue = rule.value;
+  if (ruleValue && typeof ruleValue === 'object' && ruleValue.field) {
+    // This is a field reference, get the value from the referenced field
+    ruleValue = getFormFieldValue(formData, ruleValue.field);
+    console.log(`🔗 Field-to-field comparison: ${rule.field} vs ${rule.value.field}`);
+    console.log(`📝 Values: "${fieldValue}" ${rule.operation} "${ruleValue}"`);
+  } else {
+    console.log(`📝 Comparing field "${rule.field}": "${fieldValue}" ${rule.operation} "${ruleValue}"`);
+  }
 
   switch (rule.operation) {
     case '=':

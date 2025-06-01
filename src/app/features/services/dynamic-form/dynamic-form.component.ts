@@ -1,26 +1,41 @@
 // src/app/features/services/dynamic-form/dynamic-form.component.ts
-import { Component, Input, Output, EventEmitter, OnInit, OnChanges, OnDestroy, ChangeDetectorRef, SimpleChanges } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import {
+  Component,
+  Input,
+  Output,
+  EventEmitter,
+  OnInit,
+  OnChanges,
+  OnDestroy,
+  ChangeDetectorRef,
+  SimpleChanges
+} from '@angular/core';
+import {CommonModule} from '@angular/common';
+import {FormBuilder, FormGroup, ReactiveFormsModule} from '@angular/forms';
+import {Subject} from 'rxjs';
+import {takeUntil} from 'rxjs/operators';
 
-import { MatExpansionModule } from '@angular/material/expansion';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import {MatExpansionModule} from '@angular/material/expansion';
+import {MatIconModule} from '@angular/material/icon';
+import {MatButtonModule} from '@angular/material/button';
+import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 
-import { ServiceFlowCategory, ServiceFlowField, evaluateVisibilityCondition, LookupOption } from '../../../core/models/interfaces';
-import { ApiService } from '../../../core/services/api.service';
+import {
+  ServiceFlowCategory,
+  ServiceFlowField,
+  evaluateVisibilityCondition,
+  LookupOption
+} from '../../../core/models/interfaces';
+import {ApiService} from '../../../core/services/api.service';
 
 // Import all field components
-import { TextFieldComponent } from './field-components/text-field/text-field.component';
-import { NumberFieldComponent } from './field-components/number-field/number-field.component';
-import { BooleanFieldComponent } from './field-components/boolean-field/boolean-field.component';
-import { ChoiceFieldComponent } from './field-components/choice-field/choice-field.component';
-import { FileFieldComponent } from './field-components/file-field/file-field.component';
-import { DecimalFieldComponent } from './field-components/decimal-field/decimal-field.component';
-import { PercentageFieldComponent } from './field-components/percentage-field/percentage-field.component';
+import {TextFieldComponent} from './field-components/text-field/text-field.component';
+import {NumberFieldComponent} from './field-components/number-field/number-field.component';
+import {BooleanFieldComponent} from './field-components/boolean-field/boolean-field.component';
+import {ChoiceFieldComponent} from './field-components/choice-field/choice-field.component';
+import {FileFieldComponent} from './field-components/file-field/file-field.component';
+import {DecimalFieldComponent} from './field-components/decimal-field/decimal-field.component';
+import {PercentageFieldComponent} from './field-components/percentage-field/percentage-field.component';
 
 @Component({
   selector: 'app-dynamic-form',
@@ -46,7 +61,7 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
       <form [formGroup]="dynamicForm" class="dynamic-form">
         <div class="categories-container">
           <mat-expansion-panel
-            *ngFor="let category of categories; trackBy: trackByCategoryId"
+            *ngFor="let category of getCategoriesWithVisibleFields(); trackBy: trackByCategoryId"
             [expanded]="true"
             class="category-panel">
 
@@ -75,6 +90,7 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
                   class="field-container"
                   [class]="'field-type-' + field.field_type">
 
+                  <!-- All the field components remain the same -->
                   <!-- Text Fields -->
                   <app-text-field
                     *ngIf="isTextField(field)"
@@ -157,7 +173,7 @@ import { PercentageFieldComponent } from './field-components/percentage-field/pe
 
             <h5>Visible Fields by Category:</h5>
             <ul>
-              <li *ngFor="let category of categories">
+              <li *ngFor="let category of getCategoriesWithVisibleFields()">
                 <strong>{{ category.name }}:</strong>
                 <span *ngFor="let field of getVisibleFields(category.fields); let last = last">
                   {{ field.name }}<span *ngIf="!last">, </span>
@@ -384,7 +400,7 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
       if (control) {
         const newValue = this.formData[fieldName];
         if (control.value !== newValue) {
-          control.setValue(newValue, { emitEvent: false });
+          control.setValue(newValue, {emitEvent: false});
         }
       }
     });
@@ -411,7 +427,7 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
     console.log('🔧 DynamicForm: Field changed:', fieldName, '=', value);
 
     // Update form control
-    this.dynamicForm.get(fieldName)?.setValue(value, { emitEvent: true });
+    this.dynamicForm.get(fieldName)?.setValue(value, {emitEvent: true});
   }
 
   getFieldValue(fieldName: string): any {
@@ -568,7 +584,7 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
       });
     });
 
-    return { isValid, errors };
+    return {isValid, errors};
   }
 
   private getFieldErrorMessages(field: ServiceFlowField, errors: any): string[] {
@@ -605,7 +621,7 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
 
   // Get form data for submission
   getFormData(): any {
-    const formData = { ...this.formData };
+    const formData = {...this.formData};
 
     // Process form data according to field types
     this.categories.forEach(category => {
@@ -673,4 +689,20 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
 
     console.log('📤 DynamicForm: Prepared form data for submission:', formData);
     return formData;
-  }}
+  }
+
+  getCategoriesWithVisibleFields(): ServiceFlowCategory[] {
+    return this.categories.filter(category => {
+      const visibleFields = this.getVisibleFields(category.fields);
+      const hasVisibleFields = visibleFields.length > 0;
+
+      if (!hasVisibleFields) {
+        console.log('📂 DynamicForm: Hiding category with no visible fields:', category.name);
+      }
+
+      return hasVisibleFields;
+    });
+  }
+
+}
+
