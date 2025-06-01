@@ -18,7 +18,8 @@ import {
   providedIn: 'root'
 })
 export class ApiService {
-  private readonly DEFAULT_HEADERS = {
+  // Default headers for JSON requests only
+  private readonly JSON_HEADERS = {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   };
@@ -37,15 +38,17 @@ export class ApiService {
 
     console.log('🌐 API: Getting services from:', `${url}?name=Service`);
 
-    return this.http.get<ServicesResponse>(url, { params })
-      .pipe(
-        retry(2),
-        map(response => {
-          console.log('✅ API: Services loaded:', response.count, 'services');
-          return response;
-        }),
-        catchError(this.handleError)
-      );
+    return this.http.get<ServicesResponse>(url, {
+      params,
+      headers: this.JSON_HEADERS
+    }).pipe(
+      retry(2),
+      map(response => {
+        console.log('✅ API: Services loaded:', response.count, 'services');
+        return response;
+      }),
+      catchError(this.handleError)
+    );
   }
 
   /**
@@ -62,21 +65,23 @@ export class ApiService {
 
     console.log('🔄 API: Calling service flow API with URL:', `${url}?service=${serviceParam}`);
 
-    return this.http.get<ServiceFlowResponse>(url, { params })
-      .pipe(
-        retry(2),
-        map(response => {
-          console.log('✅ API: Service flow loaded:', response);
-          // Sort service flow steps by sequence_number
-          if (response.service_flow) {
-            response.service_flow.sort((a, b) =>
-              parseInt(a.sequence_number) - parseInt(b.sequence_number)
-            );
-          }
-          return response;
-        }),
-        catchError(this.handleError)
-      );
+    return this.http.get<ServiceFlowResponse>(url, {
+      params,
+      headers: this.JSON_HEADERS
+    }).pipe(
+      retry(2),
+      map(response => {
+        console.log('✅ API: Service flow loaded:', response);
+        // Sort service flow steps by sequence_number
+        if (response.service_flow) {
+          response.service_flow.sort((a, b) =>
+            parseInt(a.sequence_number) - parseInt(b.sequence_number)
+          );
+        }
+        return response;
+      }),
+      catchError(this.handleError)
+    );
   }
 
   /**
@@ -89,18 +94,20 @@ export class ApiService {
 
     console.log('🔍 API: Getting lookup options for parent:', parentLookupId, 'URL:', `${url}?parent_lookup=${parentLookupId}`);
 
-    return this.http.get<LookupResponse>(url, { params })
-      .pipe(
-        retry(2),
-        map(response => {
-          console.log('✅ API: Lookup options loaded:', response.count, 'options for parent', parentLookupId);
-          return response;
-        }),
-        catchError((error) => {
-          console.error('❌ API: Error loading lookup options for parent', parentLookupId, ':', error);
-          return this.handleError(error);
-        })
-      );
+    return this.http.get<LookupResponse>(url, {
+      params,
+      headers: this.JSON_HEADERS
+    }).pipe(
+      retry(2),
+      map(response => {
+        console.log('✅ API: Lookup options loaded:', response.count, 'options for parent', parentLookupId);
+        return response;
+      }),
+      catchError((error) => {
+        console.error('❌ API: Error loading lookup options for parent', parentLookupId, ':', error);
+        return this.handleError(error);
+      })
+    );
   }
 
   /**
@@ -112,15 +119,17 @@ export class ApiService {
 
     console.log('🔍 API: Getting lookup options by name:', parentLookupName);
 
-    return this.http.get<LookupResponse>(url, { params })
-      .pipe(
-        retry(2),
-        map(response => {
-          console.log('✅ API: Lookup options by name loaded:', response.count, 'options');
-          return response;
-        }),
-        catchError(this.handleError)
-      );
+    return this.http.get<LookupResponse>(url, {
+      params,
+      headers: this.JSON_HEADERS
+    }).pipe(
+      retry(2),
+      map(response => {
+        console.log('✅ API: Lookup options by name loaded:', response.count, 'options');
+        return response;
+      }),
+      catchError(this.handleError)
+    );
   }
 
   /**
@@ -136,19 +145,22 @@ export class ApiService {
 
     console.log('📋 API: Getting applications:', status ? `with status ${status}` : 'all');
 
-    return this.http.get<ApplicationsResponse>(url, { params })
-      .pipe(
-        retry(2),
-        map(response => {
-          console.log('✅ API: Applications loaded:', response.count, 'applications');
-          return response;
-        }),
-        catchError(this.handleError)
-      );
+    return this.http.get<ApplicationsResponse>(url, {
+      params,
+      headers: this.JSON_HEADERS
+    }).pipe(
+      retry(2),
+      map(response => {
+        console.log('✅ API: Applications loaded:', response.count, 'applications');
+        return response;
+      }),
+      catchError(this.handleError)
+    );
   }
 
   /**
    * Submit a new case/application
+   * ALWAYS uses FormData to avoid Content-Type issues
    * @param caseData - Case submission data
    */
   submitCase(caseData: CaseSubmission): Observable<any> {
@@ -156,16 +168,8 @@ export class ApiService {
 
     console.log('📤 API: Submitting case:', caseData);
 
-    // Check if we have files to upload
-    const hasFiles = this.hasFileData(caseData.case_data);
-
-    if (hasFiles) {
-      console.log('📎 API: Case has files, using FormData submission');
-      return this.submitCaseWithFiles(url, caseData);
-    } else {
-      console.log('📄 API: Case has no files, using JSON submission');
-      return this.submitCaseAsJson(url, caseData);
-    }
+    // ALWAYS use FormData for case submissions to ensure consistency
+    return this.submitCaseAsFormData(url, caseData, 'POST');
   }
 
   /**
@@ -177,7 +181,8 @@ export class ApiService {
 
     console.log('🚀 API: Submitting created case:', caseId);
 
-    return this.http.put(url, {}, { headers: this.DEFAULT_HEADERS })
+    // This endpoint likely expects JSON
+    return this.http.put(url, {}, { headers: this.JSON_HEADERS })
       .pipe(
         map(response => {
           console.log('✅ API: Case submitted successfully:', response);
@@ -195,20 +200,8 @@ export class ApiService {
 
     console.log('🔄 API: Updating case:', caseId, caseData);
 
-    const hasFiles = this.hasFileData(caseData.case_data || {});
-
-    if (hasFiles) {
-      return this.submitCaseWithFiles(url, caseData, 'PUT');
-    } else {
-      return this.http.put(url, caseData, { headers: this.DEFAULT_HEADERS })
-        .pipe(
-          map(response => {
-            console.log('✅ API: Case updated successfully:', response);
-            return response;
-          }),
-          catchError(this.handleError)
-        );
-    }
+    // Always use FormData for case updates to maintain consistency
+    return this.submitCaseAsFormData(url, caseData, 'PUT');
   }
 
   /**
@@ -219,7 +212,7 @@ export class ApiService {
 
     console.log('🔍 API: Getting case:', caseId);
 
-    return this.http.get(url)
+    return this.http.get(url, { headers: this.JSON_HEADERS })
       .pipe(
         retry(2),
         map(response => {
@@ -238,7 +231,7 @@ export class ApiService {
 
     console.log('🗑️ API: Deleting case:', caseId);
 
-    return this.http.delete(url)
+    return this.http.delete(url, { headers: this.JSON_HEADERS })
       .pipe(
         map(response => {
           console.log('✅ API: Case deleted successfully');
@@ -258,6 +251,7 @@ export class ApiService {
 
     console.log('📎 API: Uploading file:', file.name, 'for field:', fieldName);
 
+    // DO NOT set Content-Type header - let browser handle it
     return this.http.post(url, formData)
       .pipe(
         map(response => {
@@ -274,11 +268,13 @@ export class ApiService {
   get<T>(endpoint: string, params?: HttpParams): Observable<T> {
     const url = this.buildUrl(endpoint);
 
-    return this.http.get<T>(url, { params })
-      .pipe(
-        retry(2),
-        catchError(this.handleError)
-      );
+    return this.http.get<T>(url, {
+      params,
+      headers: this.JSON_HEADERS
+    }).pipe(
+      retry(2),
+      catchError(this.handleError)
+    );
   }
 
   /**
@@ -287,7 +283,7 @@ export class ApiService {
   post<T>(endpoint: string, data: any): Observable<T> {
     const url = this.buildUrl(endpoint);
 
-    return this.http.post<T>(url, data, { headers: this.DEFAULT_HEADERS })
+    return this.http.post<T>(url, data, { headers: this.JSON_HEADERS })
       .pipe(
         catchError(this.handleError)
       );
@@ -299,7 +295,7 @@ export class ApiService {
   put<T>(endpoint: string, data: any): Observable<T> {
     const url = this.buildUrl(endpoint);
 
-    return this.http.put<T>(url, data, { headers: this.DEFAULT_HEADERS })
+    return this.http.put<T>(url, data, { headers: this.JSON_HEADERS })
       .pipe(
         catchError(this.handleError)
       );
@@ -311,36 +307,22 @@ export class ApiService {
   delete<T>(endpoint: string): Observable<T> {
     const url = this.buildUrl(endpoint);
 
-    return this.http.delete<T>(url)
+    return this.http.delete<T>(url, { headers: this.JSON_HEADERS })
       .pipe(
         catchError(this.handleError)
       );
   }
 
   /**
-   * Submit case as JSON (no files)
+   * Submit case using FormData (for both with and without files)
+   * This ensures consistent Content-Type handling
    */
-  private submitCaseAsJson(url: string, caseData: any, method: string = 'POST'): Observable<any> {
-    const request = method === 'PUT'
-      ? this.http.put(url, caseData, { headers: this.DEFAULT_HEADERS })
-      : this.http.post(url, caseData, { headers: this.DEFAULT_HEADERS });
-
-    return request.pipe(
-      map(response => {
-        console.log('✅ API: Case submitted (JSON):', response);
-        return response;
-      }),
-      catchError(this.handleError)
-    );
-  }
-
-  /**
-   * Submit case with files using FormData
-   */
-  private submitCaseWithFiles(url: string, caseData: any, method: string = 'POST'): Observable<any> {
+  private submitCaseAsFormData(url: string, caseData: any, method: string = 'POST'): Observable<any> {
     const formData = new FormData();
 
-    // Add non-file fields
+    console.log('📦 API: Preparing FormData submission:', { method, url });
+
+    // Add basic case fields
     if (caseData.applicant_type) {
       formData.append('applicant_type', caseData.applicant_type.toString());
     }
@@ -348,19 +330,18 @@ export class ApiService {
       formData.append('case_type', caseData.case_type.toString());
     }
 
-    // Prepare case_data object (excluding files)
+    // Process case_data to separate files from other data
     const caseDataForJson: any = {};
     const files: File[] = [];
     const fileTypes: string[] = [];
 
-    // Process case_data to separate files from other data
     if (caseData.case_data) {
       for (const [key, value] of Object.entries(caseData.case_data)) {
         if (value instanceof File) {
           files.push(value);
-          // For file fields, we need to determine the file type based on the field configuration
-          // This should be passed from the dynamic form component
-          fileTypes.push('01'); // Default file type, should be configured properly
+          // Use the field name as the file field name
+          formData.append(`files`, value, value.name);
+          console.log('📎 API: Added file:', value.name, 'for field:', key);
         } else if (value !== null && value !== undefined) {
           caseDataForJson[key] = value;
         }
@@ -370,34 +351,32 @@ export class ApiService {
     // Add case_data as JSON string
     formData.append('case_data', JSON.stringify(caseDataForJson));
 
-    // Add files with proper indexing
-    files.forEach((file, index) => {
-      formData.append(`files[${index}]`, file, file.name);
-    });
-
-    // Add file_types array (this should be provided from the form)
+    // Add file_types array if provided or if we have files
     if (caseData.file_types && Array.isArray(caseData.file_types)) {
       caseData.file_types.forEach((fileType: string, index: number) => {
-        formData.append(`file_types[${index}]`, fileType);
+        formData.append(`file_types`, fileType);
       });
-    } else {
-      // Use default file types if not provided
-      fileTypes.forEach((fileType: string, index: number) => {
-        formData.append(`file_types[${index}]`, fileType);
+    } else if (files.length > 0) {
+      // Default file types for detected files
+      files.forEach(() => {
+        formData.append(`file_types`, '01'); // Default file type
       });
     }
 
-    console.log('🔄 API: Submitting form data:', {
+    console.log('🔄 API: FormData prepared:', {
+      method,
       applicant_type: caseData.applicant_type,
       case_type: caseData.case_type,
-      case_data: caseDataForJson,
+      case_data_fields: Object.keys(caseDataForJson),
       files_count: files.length,
-      file_types: caseData.file_types || fileTypes
+      file_types_count: caseData.file_types?.length || files.length
     });
 
+    // Make the HTTP request without setting Content-Type
+    // The browser will automatically set "multipart/form-data" with boundary
     const request = method === 'PUT'
-      ? this.http.put(url, formData)
-      : this.http.post(url, formData);
+      ? this.http.put(url, formData) // No headers specified
+      : this.http.post(url, formData); // No headers specified
 
     return request.pipe(
       map(response => {
@@ -406,15 +385,6 @@ export class ApiService {
       }),
       catchError(this.handleError)
     );
-  }
-
-  /**
-   * Check if case data contains files
-   */
-  private hasFileData(caseData: { [key: string]: any }): boolean {
-    const hasFiles = Object.values(caseData || {}).some(value => value instanceof File);
-    console.log('📎 API: Case has files:', hasFiles);
-    return hasFiles;
   }
 
   /**
@@ -464,6 +434,12 @@ export class ApiService {
           break;
         case 404:
           errorMessage = 'Resource not found.';
+          break;
+        case 415:
+          errorMessage = 'Unsupported media type. The server cannot process the request format.';
+          if (error.error && error.error.detail) {
+            errorMessage += ` Details: ${error.error.detail}`;
+          }
           break;
         case 500:
           errorMessage = 'Internal server error. Please try again later.';
