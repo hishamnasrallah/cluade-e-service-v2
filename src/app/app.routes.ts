@@ -2,7 +2,6 @@
 import { Routes } from '@angular/router';
 import { AuthGuard } from './guards/auth.guard';
 
-// Fixed component imports using lazy loading to avoid circular dependencies
 export const routes: Routes = [
   {
     path: 'config',
@@ -23,8 +22,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    // Updated route to accept both service CODE and service ID
+    // :serviceCode - for the service flow API (e.g., "01", "03", "05")
+    // :serviceId - for case submission (numeric ID like 9, 46, 51)
     path: 'service-flow/:serviceCode/:serviceId',
-    loadComponent: () => import('./components/service-flow/service-flow.component').then(m => m.ServiceFlowComponent),
+    loadComponent: () => import('./features/services/service-wizard/service-wizard.component').then(m => m.ServiceWizardComponent),
     canActivate: [AuthGuard]
   },
   {
