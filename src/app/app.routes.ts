@@ -1,25 +1,39 @@
-// src/app/app-routing.module.ts
-import { NgModule } from '@angular/core';
-import { RouterModule, Routes } from '@angular/router';
-import { ConfigurationComponent } from './features/configuration/configuration.component';
-import { LoginComponent } from './features/auth/login/login.component';
-import { HomeComponent } from './features/home/home.component';
-import { ServiceWizardComponent } from './features/services/service-wizard/service-wizard.component';
-import { ApplicationDetailComponent } from './features/applications/application-detail/application-detail.component';
-import { AuthGuard } from './core/guards/auth.guard';
+// src/app/app.routes.ts
+import { Routes } from '@angular/router';
+import { AuthGuard } from './guards/auth.guard';
 
-const routes: Routes = [
-  { path: '', redirectTo: '/config', pathMatch: 'full' },
-  { path: 'config', component: ConfigurationComponent },
-  { path: 'login', component: LoginComponent },
-  { path: 'home', component: HomeComponent, canActivate: [AuthGuard] },
-  { path: 'service/:id', component: ServiceWizardComponent, canActivate: [AuthGuard] },
-  { path: 'application/:id', component: ApplicationDetailComponent, canActivate: [AuthGuard] },
-  { path: '**', redirectTo: '/config' }
+// Fixed component imports using lazy loading to avoid circular dependencies
+export const routes: Routes = [
+  {
+    path: 'config',
+    loadComponent: () => import('./features/configuration/configuration.component').then(m => m.ConfigComponent)
+  },
+  {
+    path: 'login',
+    loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent)
+  },
+  {
+    path: 'home',
+    loadComponent: () => import('./features/home/home.component').then(m => m.HomeComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'services',
+    loadComponent: () => import('./features/services/services.component').then(m => m.ServicesComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'service-flow/:serviceCode/:serviceId',
+    loadComponent: () => import('./components/service-flow/service-flow.component').then(m => m.ServiceFlowComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: '',
+    redirectTo: '/home',
+    pathMatch: 'full'
+  },
+  {
+    path: '**',
+    redirectTo: '/home'
+  }
 ];
-
-@NgModule({
-  imports: [RouterModule.forRoot(routes)],
-  exports: [RouterModule]
-})
-export class AppRoutingModule { }

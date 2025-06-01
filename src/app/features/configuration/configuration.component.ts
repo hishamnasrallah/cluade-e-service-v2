@@ -12,7 +12,7 @@ import { ConfigService } from '../../core/services/config.service';
   ],
   styleUrls: ['./configuration.component.scss']
 })
-export class ConfigurationComponent implements OnInit {
+export class ConfigComponent implements OnInit {
   configForm: FormGroup;
 
   constructor(

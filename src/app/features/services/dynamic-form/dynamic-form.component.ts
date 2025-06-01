@@ -1,20 +1,136 @@
-// src/app/features/services/dynamic-form/dynamic-form.component.ts
 import { Component, Input, Output, EventEmitter, OnInit, OnChanges } from '@angular/core';
-import {FormBuilder, FormGroup, ReactiveFormsModule} from '@angular/forms';
-import { Category } from '../../../core/models/category.model';
+import { CommonModule } from '@angular/common';
+import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+
+import { ServiceFlowCategory, ServiceFlowField, evaluateVisibilityCondition } from '../../../models/interfaces';
+
+// Import all field components
+import { TextFieldComponent } from './field-components/text-field/text-field.component';
+import { NumberFieldComponent } from './field-components/number-field/number-field.component';
+import { BooleanFieldComponent } from './field-components/boolean-field/boolean-field.component';
+import { ChoiceFieldComponent } from './field-components/choice-field/choice-field.component';
+import { FileFieldComponent } from './field-components/file-field/file-field.component';
+import { DecimalFieldComponent } from './field-components/decimal-field/decimal-field.component';
+import { PercentageFieldComponent } from './field-components/percentage-field/percentage-field.component';
 
 @Component({
   selector: 'app-dynamic-form',
-  templateUrl: './dynamic-form.component.html',
+  standalone: true,
   imports: [
-    ReactiveFormsModule
+    CommonModule,
+    ReactiveFormsModule,
+    MatExpansionModule,
+    MatIconModule,
+    MatButtonModule,
+    // Field components
+    TextFieldComponent,
+    NumberFieldComponent,
+    BooleanFieldComponent,
+    ChoiceFieldComponent,
+    FileFieldComponent,
+    DecimalFieldComponent,
+    PercentageFieldComponent
   ],
+  template: `
+    <div class="dynamic-form-container">
+      <form [formGroup]="dynamicForm" class="dynamic-form">
+        <div class="categories-container">
+          <mat-expansion-panel
+            *ngFor="let category of categories; trackBy: trackByCategoryId"
+            [expanded]="true"
+            class="category-panel">
+
+            <mat-expansion-panel-header>
+              <mat-panel-title>
+                <mat-icon class="category-icon">folder</mat-icon>
+                {{ category.name }}
+              </mat-panel-title>
+              <mat-panel-description *ngIf="category.name_ara">
+                {{ category.name_ara }}
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <div class="category-content">
+              <div class="fields-grid">
+                <div
+                  *ngFor="let field of getVisibleFields(category.fields); trackBy: trackByFieldId"
+                  class="field-container"
+                  [class]="'field-type-' + field.field_type">
+
+                  <!-- Text Fields -->
+                  <app-text-field
+                    *ngIf="isTextField(field)"
+                    [field]="field"
+                    [value]="dynamicForm.get(field.name)?.value"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-text-field>
+
+                  <!-- Number Fields -->
+                  <app-number-field
+                    *ngIf="isNumberField(field)"
+                    [field]="field"
+                    [value]="dynamicForm.get(field.name)?.value"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-number-field>
+
+                  <!-- Boolean Fields -->
+                  <app-boolean-field
+                    *ngIf="isBooleanField(field)"
+                    [field]="field"
+                    [value]="dynamicForm.get(field.name)?.value"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-boolean-field>
+
+                  <!-- Choice Fields -->
+                  <app-choice-field
+                    *ngIf="isChoiceField(field)"
+                    [field]="field"
+                    [value]="dynamicForm.get(field.name)?.value"
+                    [options]="getFieldOptions(field)"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-choice-field>
+
+                  <!-- File Fields -->
+                  <app-file-field
+                    *ngIf="isFileField(field)"
+                    [field]="field"
+                    [value]="dynamicForm.get(field.name)?.value"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-file-field>
+
+                  <!-- Decimal Fields -->
+                  <app-decimal-field
+                    *ngIf="isDecimalField(field)"
+                    [field]="field"
+                    [value]="dynamicForm.get(field.name)?.value"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-decimal-field>
+
+                  <!-- Percentage Fields -->
+                  <app-percentage-field
+                    *ngIf="isPercentageField(field)"
+                    [field]="field"
+                    [value]="dynamicForm.get(field.name)?.value"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-percentage-field>
+                </div>
+              </div>
+            </div>
+          </mat-expansion-panel>
+        </div>
+      </form>
+    </div>
+  `,
   styleUrls: ['./dynamic-form.component.scss']
 })
 export class DynamicFormComponent implements OnInit, OnChanges {
-  @Input() categories: Category[] = [];
+  @Input() categories: ServiceFlowCategory[] = [];
   @Input() formData: any = {};
-  @Output() formDataChange = new EventEmitter<any>();
+  @Output() formChange = new EventEmitter<any>();
 
   dynamicForm: FormGroup;
 
@@ -34,61 +150,93 @@ export class DynamicFormComponent implements OnInit, OnChanges {
     const formControls: any = {};
 
     this.categories.forEach(category => {
-      category.fields.forEach(field => {
-        if (!field.is_hidden) {
-          formControls[field.name] = [this.formData[field.name] || ''];
-        }
+      category.fields.forEach((field: ServiceFlowField) => {
+        const defaultValue = this.getDefaultValue(field);
+        formControls[field.name] = [this.formData[field.name] || defaultValue];
       });
     });
 
     this.dynamicForm = this.fb.group(formControls);
 
+    // Subscribe to form changes
     this.dynamicForm.valueChanges.subscribe(value => {
-      this.formDataChange.emit(value);
+      this.formChange.emit(value);
     });
   }
 
-  onFieldValueChange(fieldName: string, value: any): void {
-    this.dynamicForm.patchValue({ [fieldName]: value });
-  }
-
-  isFieldVisible(field: any): boolean {
-    if (field.is_hidden) return false;
-
-    // Check visibility conditions
-    if (field.visibility_conditions && field.visibility_conditions.length > 0) {
-      return this.evaluateVisibilityConditions(field.visibility_conditions);
+  getDefaultValue(field: ServiceFlowField): any {
+    switch (field.field_type) {
+      case 'boolean':
+        return field.default_boolean || false;
+      case 'number':
+      case 'decimal':
+      case 'percentage':
+        return null;
+      case 'choice':
+        return field.max_selections === 1 ? null : [];
+      default:
+        return '';
     }
-
-    return true;
   }
 
-  private evaluateVisibilityConditions(conditions: any[]): boolean {
-    // Simplified condition evaluation
-    // In a real implementation, this would be more comprehensive
-    return conditions.every(condition => {
-      if (condition.condition_logic) {
-        return condition.condition_logic.every((logic: any) => {
-          const fieldValue = this.dynamicForm.get(logic.field)?.value;
-          switch (logic.operation) {
-            case '=':
-              return fieldValue == logic.value;
-            case '!=':
-              return fieldValue != logic.value;
-            case '>':
-              return Number(fieldValue) > Number(logic.value);
-            case '<':
-              return Number(fieldValue) < Number(logic.value);
-            case 'contains':
-              return String(fieldValue).includes(String(logic.value));
-            case 'startswith':
-              return String(fieldValue).startsWith(String(logic.value));
-            default:
-              return true;
-          }
-        });
+  onFieldChange(fieldName: string, value: any): void {
+    this.dynamicForm.get(fieldName)?.setValue(value, { emitEvent: false });
+    this.formChange.emit(this.dynamicForm.value);
+  }
+
+  getVisibleFields(fields: ServiceFlowField[]): ServiceFlowField[] {
+    return fields.filter(field => {
+      if (field.is_hidden) return false;
+
+      if (field.visibility_conditions && field.visibility_conditions.length > 0) {
+        return field.visibility_conditions.some((condition: any) =>
+          evaluateVisibilityCondition(condition, this.dynamicForm.value)
+        );
       }
+
       return true;
     });
+  }
+
+  getFieldOptions(field: ServiceFlowField): any[] {
+    return field.allowed_lookups || [];
+  }
+
+  // Field type checking methods
+  isTextField(field: ServiceFlowField): boolean {
+    return field.field_type === 'text';
+  }
+
+  isNumberField(field: ServiceFlowField): boolean {
+    return field.field_type === 'number';
+  }
+
+  isBooleanField(field: ServiceFlowField): boolean {
+    return field.field_type === 'boolean';
+  }
+
+  isChoiceField(field: ServiceFlowField): boolean {
+    return field.field_type === 'choice';
+  }
+
+  isFileField(field: ServiceFlowField): boolean {
+    return field.field_type === 'file';
+  }
+
+  isDecimalField(field: ServiceFlowField): boolean {
+    return field.field_type === 'decimal';
+  }
+
+  isPercentageField(field: ServiceFlowField): boolean {
+    return field.field_type === 'percentage';
+  }
+
+  // Track by methods
+  trackByCategoryId(index: number, category: ServiceFlowCategory): number {
+    return category.id;
+  }
+
+  trackByFieldId(index: number, field: ServiceFlowField): number {
+    return field.field_id;
   }
 }

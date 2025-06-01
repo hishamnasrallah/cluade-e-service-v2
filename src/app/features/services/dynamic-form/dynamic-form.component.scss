@@ -1,0 +1,25 @@
+/* src/app/features/services/dynamic-form/dynamic-form.component.scss */
+.dynamic-form-container {
+  width: 100%;
+}
+
+.categories-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.category-panel {
+  border-radius: 12px;
+}
+
+.fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 16px 0;
+}
+
+.field-container {
+  width: 100%;
+}

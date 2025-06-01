@@ -1,43 +1,90 @@
-
 // src/app/features/services/dynamic-form/field-components/decimal-field/decimal-field.component.ts
-import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { Field } from '../../../../../core/models/field.model';
+import { Component, Input, Output, EventEmitter, forwardRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormControl, ReactiveFormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { ServiceFlowField } from '../../../../../models/interfaces';
 
 @Component({
   selector: 'app-decimal-field',
-  templateUrl: './decimal-field.component.html',
-  styleUrls: ['./decimal-field.component.scss']
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule],
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => DecimalFieldComponent),
+      multi: true
+    }
+  ],
+  template: `
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>{{ field.display_name }}</mat-label>
+      <input matInput
+             type="number"
+             [formControl]="control"
+             [placeholder]="field.display_name"
+             [min]="getMinValue()"
+             [max]="getMaxValue()"
+             [step]="getStep()"
+             [readonly]="field.is_disabled">
+      <mat-error *ngIf="control.hasError('required')">
+        {{ field.display_name }} is required
+      </mat-error>
+    </mat-form-field>
+  `,
+  styles: [`
+    .full-width {
+      width: 100%;
+    }
+  `]
 })
-export class DecimalFieldComponent {
-  @Input() field!: Field;
-  @Input() value: number | null = null;
-  @Output() valueChange = new EventEmitter<number>();
+export class DecimalFieldComponent implements ControlValueAccessor {
+  @Input() field!: ServiceFlowField;
+  @Input() value: any = null;
+  @Output() valueChange = new EventEmitter<any>();
 
-  onValueChange(event: any): void {
-    const numValue = parseFloat(event.target.value);
-    this.valueChange.emit(numValue);
+  control = new FormControl(null);
+
+  private onChange = (value: any) => {};
+  private onTouched = () => {};
+
+  ngOnInit() {
+    this.control.valueChanges.subscribe(value => {
+      this.onChange(value);
+      this.valueChange.emit(value);
+    });
   }
 
-  getStep(): string {
-    if (this.field.precision) {
-      return (1 / Math.pow(10, this.field.precision)).toString();
-    }
-    return '0.01';
+  getMinValue(): number | null {
+    return this.field.value_greater_than ?? null;
   }
 
-  getValidationMessage(): string {
-    if (this.field.mandatory && (this.value === null || this.value === undefined)) {
-      return 'This field is required';
+  getMaxValue(): number | null {
+    return this.field.value_less_than ?? null;
+  }
+
+  getStep(): number {
+    return this.field.precision ? Math.pow(10, -this.field.precision) : 0.01;
+  }
+
+  writeValue(value: any): void {
+    this.control.setValue(value, { emitEvent: false });
+  }
+
+  registerOnChange(fn: (value: any) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    if (isDisabled) {
+      this.control.disable();
+    } else {
+      this.control.enable();
     }
-    if (this.field.value_greater_than !== undefined && this.value !== null && this.value <= this.field.value_greater_than) {
-      return `Value must be greater than ${this.field.value_greater_than}`;
-    }
-    if (this.field.value_less_than !== undefined && this.value !== null && this.value >= this.field.value_less_than) {
-      return `Value must be less than ${this.field.value_less_than}`;
-    }
-    if (this.field.positive_only && this.value !== null && this.value <= 0) {
-      return 'Value must be positive';
-    }
-    return '';
   }
 }

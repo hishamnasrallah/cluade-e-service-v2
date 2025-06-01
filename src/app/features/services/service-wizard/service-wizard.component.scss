@@ -1,0 +1,27 @@
+/* src/app/features/services/service-wizard/service-wizard.component.scss */
+.service-wizard-container {
+  padding: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.wizard-header {
+  margin-bottom: 24px;
+}
+
+.wizard-stepper {
+  background: transparent;
+}
+
+.step-content {
+  padding: 24px 0;
+}
+
+.step-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 0;
+  border-top: 1px solid #e0e0e0;
+  margin-top: 24px;
+}

@@ -1,53 +1,86 @@
 // src/app/features/services/dynamic-form/field-components/choice-field/choice-field.component.ts
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
-import { Field, LookupOption } from '../../../../../core/models/field.model';
-import { LookupService } from '../../../../../core/services/lookup.service';
+import { Component, Input, Output, EventEmitter, forwardRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormControl, ReactiveFormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { ServiceFlowField } from '../../../../../models/interfaces';
 
 @Component({
   selector: 'app-choice-field',
-  templateUrl: './choice-field.component.html',
-  styleUrls: ['./choice-field.component.scss']
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, MatFormFieldModule, MatSelectModule],
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => ChoiceFieldComponent),
+      multi: true
+    }
+  ],
+  template: `
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>{{ field.display_name }}</mat-label>
+      <mat-select [formControl]="control"
+                  [multiple]="isMultiple()"
+                  [disabled]="field.is_disabled">
+        <mat-option *ngFor="let option of getOptions()" [value]="option.id">
+          {{ option.name }}
+        </mat-option>
+      </mat-select>
+      <mat-error *ngIf="control.hasError('required')">
+        {{ field.display_name }} is required
+      </mat-error>
+    </mat-form-field>
+  `,
+  styles: [`
+    .full-width {
+      width: 100%;
+    }
+  `]
 })
-export class ChoiceFieldComponent implements OnInit {
-  @Input() field!: Field;
-  @Input() value: any = '';
+export class ChoiceFieldComponent implements ControlValueAccessor {
+  @Input() field!: ServiceFlowField;
+  @Input() value: any = null;
+  @Input() options: any[] = [];
   @Output() valueChange = new EventEmitter<any>();
 
-  options: LookupOption[] = [];
-  loading = false;
+  control = new FormControl(null);
 
-  constructor(private lookupService: LookupService) {}
+  private onChange = (value: any) => {};
+  private onTouched = () => {};
 
-  ngOnInit(): void {
-    this.loadOptions();
+  ngOnInit() {
+    this.control.valueChanges.subscribe(value => {
+      this.onChange(value);
+      this.valueChange.emit(value);
+    });
   }
 
-  loadOptions(): void {
-    if (this.field.allowed_lookups && this.field.allowed_lookups.length > 0) {
-      this.options = this.field.allowed_lookups;
-    } else if (this.field.lookup) {
-      this.loading = true;
-      this.lookupService.getLookupOptions(this.field.lookup).subscribe({
-        next: (response) => {
-          this.options = response.results || [];
-          this.loading = false;
-        },
-        error: (error) => {
-          console.error('Failed to load lookup options:', error);
-          this.loading = false;
-        }
-      });
+  isMultiple(): boolean {
+    return this.field.max_selections !== 1;
+  }
+
+  getOptions(): any[] {
+    return this.field.allowed_lookups || this.options || [];
+  }
+
+  writeValue(value: any): void {
+    this.control.setValue(value, { emitEvent: false });
+  }
+
+  registerOnChange(fn: (value: any) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    if (isDisabled) {
+      this.control.disable();
+    } else {
+      this.control.enable();
     }
-  }
-
-  onValueChange(event: any): void {
-    this.valueChange.emit(event.target.value);
-  }
-
-  getValidationMessage(): string {
-    if (this.field.mandatory && !this.value) {
-      return 'This field is required';
-    }
-    return '';
   }
 }

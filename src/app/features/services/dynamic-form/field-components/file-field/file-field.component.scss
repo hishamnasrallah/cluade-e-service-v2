@@ -1,0 +1,35 @@
+/* src/app/features/services/dynamic-form/field-components/file-field/file-field.component.scss */
+.file-field {
+  margin: 16px 0;
+}
+
+.file-label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.file-input-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-button {
+  min-width: 140px;
+  border: 2px dashed #bdc3c7;
+  border-radius: 8px;
+}
+
+.file-button:hover {
+  border-color: #3498db;
+}
+
+.file-name {
+  color: #27ae60;
+  font-weight: 500;
+}
