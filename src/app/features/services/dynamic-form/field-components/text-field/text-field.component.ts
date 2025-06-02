@@ -1,5 +1,5 @@
 // src/app/features/services/dynamic-form/field-components/text-field/text-field.component.ts
-import { Component, Input, Output, EventEmitter, forwardRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, forwardRef, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -50,7 +50,7 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
     }
   `]
 })
-export class TextFieldComponent implements ControlValueAccessor {
+export class TextFieldComponent implements ControlValueAccessor, OnInit, OnChanges {
   @Input() field!: ServiceFlowField;
   @Input() value: any = '';
   @Output() valueChange = new EventEmitter<any>();
@@ -61,10 +61,23 @@ export class TextFieldComponent implements ControlValueAccessor {
   private onTouched = () => {};
 
   ngOnInit() {
+    // Set initial value
+    this.control.setValue(this.value || '', { emitEvent: false });
+
     this.control.valueChanges.subscribe(value => {
       this.onChange(value);
       this.valueChange.emit(value);
+      this.onTouched();
     });
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['value'] && this.control) {
+      const newValue = changes['value'].currentValue || '';
+      if (this.control.value !== newValue) {
+        this.control.setValue(newValue, { emitEvent: false });
+      }
+    }
   }
 
   getMaxLength(): number | null {
@@ -76,7 +89,8 @@ export class TextFieldComponent implements ControlValueAccessor {
   }
 
   writeValue(value: any): void {
-    this.control.setValue(value, { emitEvent: false });
+    const safeValue = value || '';
+    this.control.setValue(safeValue, { emitEvent: false });
   }
 
   registerOnChange(fn: (value: any) => void): void {

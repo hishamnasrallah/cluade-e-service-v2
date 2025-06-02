@@ -1,5 +1,5 @@
-// src/app/features/services/dynamic-form/field-components/decimal-field/decimal-field.component.ts
-import { Component, Input, Output, EventEmitter, forwardRef } from '@angular/core';
+// Fix decimal-field.component.ts
+import { Component, Input, Output, EventEmitter, forwardRef, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -39,7 +39,7 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
     }
   `]
 })
-export class DecimalFieldComponent implements ControlValueAccessor {
+export class DecimalFieldComponent implements ControlValueAccessor, OnInit, OnChanges {
   @Input() field!: ServiceFlowField;
   @Input() value: any = null;
   @Output() valueChange = new EventEmitter<any>();
@@ -50,10 +50,23 @@ export class DecimalFieldComponent implements ControlValueAccessor {
   private onTouched = () => {};
 
   ngOnInit() {
+    // Set initial value
+    this.control.setValue(this.value, { emitEvent: false });
+
     this.control.valueChanges.subscribe(value => {
       this.onChange(value);
       this.valueChange.emit(value);
+      this.onTouched();
     });
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['value'] && this.control) {
+      const newValue = changes['value'].currentValue;
+      if (this.control.value !== newValue) {
+        this.control.setValue(newValue, { emitEvent: false });
+      }
+    }
   }
 
   getMinValue(): number | null {

@@ -1,5 +1,5 @@
-// src/app/features/services/dynamic-form/field-components/boolean-field/boolean-field.component.ts
-import { Component, Input, Output, EventEmitter, forwardRef, OnInit, OnDestroy } from '@angular/core';
+// Fix boolean-field.component.ts
+import { Component, Input, Output, EventEmitter, forwardRef, OnInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -40,10 +40,6 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
       width: 100%;
     }
 
-    .checkbox-field {
-      width: 100%;
-    }
-
     .required-indicator {
       color: #f44336;
       margin-left: 4px;
@@ -56,56 +52,15 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
       color: #666;
       font-family: monospace;
     }
-
-    /* Material checkbox customization */
-    ::ng-deep .boolean-field .mat-mdc-checkbox {
-      margin-bottom: 8px;
-    }
-
-    ::ng-deep .boolean-field .mat-mdc-checkbox .mdc-checkbox {
-      padding: 8px;
-    }
-
-    ::ng-deep .boolean-field .mat-mdc-checkbox .mdc-form-field {
-      color: #333;
-      font-size: 16px;
-    }
-
-    ::ng-deep .boolean-field .mat-mdc-checkbox .mdc-checkbox--selected .mdc-checkbox__background {
-      background-color: #3498db;
-      border-color: #3498db;
-    }
-
-    ::ng-deep .boolean-field .mat-mdc-checkbox .mdc-checkbox:hover .mdc-checkbox__background {
-      background-color: rgba(52, 152, 219, 0.1);
-    }
-
-    /* Disabled state */
-    ::ng-deep .boolean-field .mat-mdc-checkbox.mat-mdc-checkbox-disabled {
-      opacity: 0.6;
-    }
-
-    ::ng-deep .boolean-field .mat-mdc-checkbox.mat-mdc-checkbox-disabled .mdc-form-field {
-      color: #999;
-    }
-
-    /* Focus styles */
-    ::ng-deep .boolean-field .mat-mdc-checkbox .mdc-checkbox__background {
-      transition: all 0.2s ease;
-    }
-
-    ::ng-deep .boolean-field .mat-mdc-checkbox:focus-within .mdc-checkbox__background {
-      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-    }
   `]
 })
-export class BooleanFieldComponent implements ControlValueAccessor, OnInit, OnDestroy {
+export class BooleanFieldComponent implements ControlValueAccessor, OnInit, OnDestroy, OnChanges {
   @Input() field!: ServiceFlowField;
   @Input() value: boolean = false;
   @Output() valueChange = new EventEmitter<boolean>();
 
   control = new FormControl(false);
-  showDebug = false; // Set to true for debugging
+  showDebug = false;
 
   private destroy$ = new Subject<void>();
   private onChange = (value: boolean) => {};
@@ -131,6 +86,16 @@ export class BooleanFieldComponent implements ControlValueAccessor, OnInit, OnDe
     });
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['value'] && this.control) {
+      const newValue = this.convertToBoolean(changes['value'].currentValue);
+      if (this.control.value !== newValue) {
+        console.log('🔄 BooleanField: Input value changed for', this.field.name, ':', newValue);
+        this.control.setValue(newValue, { emitEvent: false });
+      }
+    }
+  }
+
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
@@ -140,7 +105,6 @@ export class BooleanFieldComponent implements ControlValueAccessor, OnInit, OnDe
     const checked = event.checked;
     console.log('✅ BooleanField: Checkbox changed for', this.field.name, ':', checked);
 
-    // The mat-checkbox already updates the FormControl, but let's ensure it's correct
     const boolValue = this.convertToBoolean(checked);
 
     if (this.control.value !== boolValue) {
