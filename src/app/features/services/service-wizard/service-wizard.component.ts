@@ -1106,6 +1106,8 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     const fileTypes = this.collectFileTypes();
 
     const caseData: Partial<CaseSubmission> = {
+      applicant_type: this.existingApplication?.applicant_type || 13,
+      case_type: this.existingApplication?.case_type || this.serviceId,
       case_data: this.wizardState.formData,
       file_types: fileTypes
     };

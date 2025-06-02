@@ -588,8 +588,8 @@ export class ApplicationsListComponent {
     switch (status) {
       case 20: return 25; // draft
       case 11: return 75; // submitted
-      case 21: return 100; // completed
-      case 44: return 50; // returned
+      case 57: return 100; // completed
+      case 21: return 50; // returned
       default: return 0;
     }
   }
@@ -598,8 +598,8 @@ export class ApplicationsListComponent {
     switch (status) {
       case 20: return 'In Progress';
       case 11: return 'Under Review';
-      case 21: return 'Completed';
-      case 44: return 'Needs Attention';
+      case 57: return 'Completed';
+      case 21: return 'Needs Attention';
       default: return '';
     }
   }
@@ -609,13 +609,13 @@ export class ApplicationsListComponent {
       case 20: // draft
         this.onContinue.emit(application);
         break;
-      case 44: // returned
+      case 21: // returned
         this.onResubmit.emit(application);
         break;
       case 11: // submitted
         this.onTrack.emit(application);
         break;
-      case 21: // completed
+      case 57: // completed
         this.onDownload.emit(application);
         break;
     }
@@ -624,9 +624,9 @@ export class ApplicationsListComponent {
   getPrimaryActionLabel(status: number): string {
     switch (status) {
       case 20: return 'Continue'; // draft
-      case 44: return 'Resubmit'; // returned
+      case 21: return 'Resubmit'; // returned
       case 11: return 'Track'; // submitted
-      case 21: return 'Download'; // completed
+      case 57: return 'Download'; // completed
       default: return '';
     }
   }
@@ -634,16 +634,16 @@ export class ApplicationsListComponent {
   getPrimaryActionIcon(status: number): string {
     switch (status) {
       case 20: return 'play_arrow'; // draft
-      case 44: return 'send'; // returned
+      case 21: return 'send'; // returned
       case 11: return 'track_changes'; // submitted
-      case 21: return 'download'; // completed
+      case 57: return 'download'; // completed
       default: return 'arrow_forward';
     }
   }
 
   // Permission checks - Updated to use numeric status
   canEdit(status: number): boolean {
-    return status === 20 || status === 44; // draft or returned
+    return status === 20 || status === 21; // draft or returned
   }
 
   canContinue(status: number): boolean {
@@ -651,7 +651,7 @@ export class ApplicationsListComponent {
   }
 
   canResubmit(status: number): boolean {
-    return status === 44; // returned
+    return status === 21; // returned
   }
 
   canTrack(status: number): boolean {
@@ -659,7 +659,7 @@ export class ApplicationsListComponent {
   }
 
   canDownload(status: number): boolean {
-    return status === 21; // completed
+    return status === 57; // completed
   }
 
   canDelete(status: number): boolean {

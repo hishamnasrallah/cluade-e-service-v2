@@ -243,15 +243,15 @@ export type ConditionOperation =
 export const STATUS_MAPPING: { [key: number]: ApplicationStatus } = {
   20: 'draft',
   11: 'submitted',
-  21: 'completed',
-  44: 'returned'
+  57: 'completed',
+  21: 'returned'
 };
 
 export const STATUS_REVERSE_MAPPING: { [key in ApplicationStatus]: number[] } = {
   'draft': [20],
   'submitted': [11],
-  'completed': [21],
-  'returned': [44],
+  'completed': [57],
+  'returned': [21],
   'all': [20, 11, 21, 44]
 };
 
@@ -268,8 +268,8 @@ export function getStatusLabel(status: number): string {
   const statusMap: { [key: number]: string } = {
     20: 'Draft',
     11: 'Submitted',
-    21: 'Completed',
-    44: 'Returned'
+    57: 'Completed',
+    21: 'Returned'
   };
   return statusMap[status] || 'Unknown';
 }
