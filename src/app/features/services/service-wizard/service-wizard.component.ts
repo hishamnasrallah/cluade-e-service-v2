@@ -774,12 +774,42 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
 
     // Merge existing data with initialized form data
     Object.keys(this.existingApplication.case_data).forEach(fieldName => {
-      if (fieldName !== 'uploaded_files') { // Skip files for now
+      if (fieldName !== 'uploaded_files') { // Skip uploaded_files for now - handle separately
         this.wizardState.formData[fieldName] = this.existingApplication!.case_data[fieldName];
+        console.log(`📝 ServiceWizard: Set ${fieldName} = ${this.existingApplication!.case_data[fieldName]}`);
       }
     });
 
-    console.log('✅ ServiceWizard: Form populated with existing data:', this.wizardState.formData);
+    // FIXED: Handle uploaded_files array - map to file fields
+    if (this.existingApplication.case_data['uploaded_files'] && Array.isArray(this.existingApplication.case_data['uploaded_files'])) {
+      const uploadedFiles = this.existingApplication.case_data['uploaded_files'];
+      console.log('📎 ServiceWizard: Processing uploaded files:', uploadedFiles);
+
+      // Get all file fields from service flow
+      const fileFields: any[] = [];
+      this.serviceFlowSteps.forEach(step => {
+        step.categories.forEach(category => {
+          category.fields.forEach(field => {
+            if (field.field_type === 'file') {
+              fileFields.push(field);
+            }
+          });
+        });
+      });
+
+      console.log('📁 ServiceWizard: Found file fields:', fileFields.map(f => f.name));
+
+      // Map uploaded files to file fields (for now, map first file to first file field, etc.)
+      uploadedFiles.forEach((file: any, index: number) => {
+        if (fileFields[index]) {
+          const fieldName = fileFields[index].name;
+          this.wizardState.formData[fieldName] = file.file_url;
+          console.log(`📎 ServiceWizard: Mapped file ${index} to field ${fieldName}: ${file.file_url}`);
+        }
+      });
+    }
+
+    console.log('✅ ServiceWizard: Final form data:', this.wizardState.formData);
   }
 
   createStepForm(step: ServiceFlowStep): FormGroup {

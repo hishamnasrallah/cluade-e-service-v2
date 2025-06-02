@@ -1,5 +1,5 @@
 // Fix file-field.component.ts
-import { Component, Input, Output, EventEmitter, forwardRef, OnChanges, SimpleChanges } from '@angular/core';
+import {Component, Input, Output, EventEmitter, forwardRef, OnChanges, SimpleChanges, OnInit} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -108,7 +108,7 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
     }
   `]
 })
-export class FileFieldComponent implements ControlValueAccessor, OnChanges {
+export class FileFieldComponent implements ControlValueAccessor, OnInit, OnChanges {
   @Input() field!: ServiceFlowField;
   @Input() value: File | string | null = null;
   @Output() valueChange = new EventEmitter<File | null>();
@@ -119,31 +119,53 @@ export class FileFieldComponent implements ControlValueAccessor, OnChanges {
   private onChange = (value: File | null) => {};
   private onTouched = () => {};
 
+  ngOnInit() {
+    console.log('📁 FileField: Initializing field:', this.field.name, 'Initial value:', this.value, 'Type:', typeof this.value);
+    this.updateFileDisplay(this.value);
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['value']) {
       const newValue = changes['value'].currentValue;
+      console.log('📁 FileField: Input value changed for', this.field.name, 'to:', newValue, 'Type:', typeof newValue);
       this.updateFileDisplay(newValue);
     }
   }
 
   private updateFileDisplay(value: any): void {
+    console.log('📁 FileField: Updating display for', this.field.name, 'with value:', value);
+
     if (value instanceof File) {
+      // New file selected
       this.selectedFileName = value.name;
       this.hasExistingFile = false;
-    } else if (typeof value === 'string' && value) {
-      // Existing file URL
+      console.log('📎 FileField: New file selected:', value.name);
+    } else if (typeof value === 'string' && value && value.trim() !== '') {
+      // FIXED: Existing file URL from edit mode
       this.selectedFileName = '';
       this.hasExistingFile = true;
+      console.log('🔗 FileField: Existing file URL detected:', value);
     } else {
+      // No file
       this.selectedFileName = '';
       this.hasExistingFile = false;
+      console.log('❌ FileField: No file value');
     }
   }
 
   getExistingFileName(): string {
-    if (typeof this.value === 'string') {
-      const parts = this.value.split('/');
-      return parts[parts.length - 1] || 'Existing file';
+    if (typeof this.value === 'string' && this.value) {
+      try {
+        // Extract filename from URL
+        const url = this.value;
+        const parts = url.split('/');
+        const filename = parts[parts.length - 1];
+        // Clean up the filename (remove UUID parts if present)
+        const cleanFilename = filename.replace(/_[a-f0-9-]{36}/, '');
+        return cleanFilename || 'Existing file';
+      } catch (error) {
+        return 'Existing file';
+      }
     }
     return 'Existing file';
   }
@@ -151,6 +173,7 @@ export class FileFieldComponent implements ControlValueAccessor, OnChanges {
   onFileSelected(event: any): void {
     const file = event.target.files[0];
     if (file) {
+      console.log('📎 FileField: File selected for', this.field.name, ':', file.name);
       this.selectedFileName = file.name;
       this.hasExistingFile = false;
       this.onChange(file);
@@ -164,6 +187,7 @@ export class FileFieldComponent implements ControlValueAccessor, OnChanges {
   }
 
   writeValue(value: File | string | null): void {
+    console.log('✏️ FileField: writeValue called for', this.field.name, 'with:', value);
     this.updateFileDisplay(value);
   }
 

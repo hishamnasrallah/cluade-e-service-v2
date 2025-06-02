@@ -553,15 +553,16 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   onFieldChange(fieldName: string, value: any): void {
-    console.log('🔧 DynamicForm: Field changed:', fieldName, '=', value);
+    console.log('🔧 DynamicForm: Field changed:', fieldName, '=', value, 'Type:', typeof value);
 
     // Update form control
     this.dynamicForm.get(fieldName)?.setValue(value, {emitEvent: true});
   }
 
   getFieldValue(fieldName: string): any {
-    // Always use the input formData which has the complete wizard data
-    return this.formData[fieldName];
+    const value = this.formData[fieldName];
+    console.log(`🔍 DynamicForm: Getting value for ${fieldName}:`, value, 'Type:', typeof value);
+    return value;
   }
 
   getFieldValueType(fieldName: string): string {
