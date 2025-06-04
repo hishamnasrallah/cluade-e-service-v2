@@ -21,7 +21,7 @@ import {
   ServiceFlowStep,
   CaseSubmission,
   WizardState,
-  Application
+  Application, evaluateVisibilityCondition
 } from '../../../core/models/interfaces';
 
 @Component({
@@ -941,7 +941,26 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
       });
     });
   }
+// Add this method to the ServiceWizardComponent class
+  private isFieldVisible(field: any): boolean {
+    // Skip explicitly hidden fields
+    if (field.is_hidden) {
+      return false;
+    }
 
+    // Check visibility conditions using the complete wizard form data
+    if (field.visibility_conditions && field.visibility_conditions.length > 0) {
+      // ALL visibility conditions must be met for the field to be visible
+      const isVisible = field.visibility_conditions.every((condition: any) => {
+        return evaluateVisibilityCondition(condition, this.wizardState.formData);
+      });
+
+      return isVisible;
+    }
+
+    // No conditions means visible by default
+    return true;
+  }
   validateCurrentStep(): void {
     if (!this.currentStep) {
       this.currentStepValidation = null;
@@ -956,7 +975,7 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
       category.fields.forEach(field => {
         // Skip hidden and disabled fields
         if (field.is_hidden || field.is_disabled) return;
-
+        if (!this.isFieldVisible(field)) return;
         const value = this.wizardState.formData[field.name];
 
         // Check required fields
