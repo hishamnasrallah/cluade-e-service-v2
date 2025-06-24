@@ -213,7 +213,7 @@ import { ApplicationsListComponent } from '../applications/applications-list/app
     }
 
     .new-application-btn {
-      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%);
       color: white;
       font-weight: 600;
       height: 44px;
@@ -257,7 +257,7 @@ import { ApplicationsListComponent } from '../applications/applications-list/app
     }
 
     .stat-card.stat-submitted {
-      border-left-color: #3498db;
+      border-left-color: #2EC4B6;
     }
 
     .stat-card.stat-completed {
@@ -285,7 +285,7 @@ import { ApplicationsListComponent } from '../applications/applications-list/app
 
     .stat-submitted .stat-icon {
       background: rgba(52, 152, 219, 0.1);
-      color: #3498db;
+      color: #2EC4B6;
     }
 
     .stat-completed .stat-icon {

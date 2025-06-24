@@ -272,7 +272,7 @@ import { Service } from '../../../core/models/interfaces';
       justify-content: center;
       align-items: center;
       height: 120px;
-      background: linear-gradient(135deg, #9b59b6 0%, #3498db 100%);
+      background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%);
       margin: -1px -1px 0 -1px;
     }
 
@@ -401,7 +401,7 @@ import { Service } from '../../../core/models/interfaces';
     }
 
     .start-btn {
-      background: linear-gradient(135deg, #9b59b6 0%, #3498db 100%);
+      background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%);
       color: white;
       font-weight: 600;
       flex: 1;
@@ -424,7 +424,7 @@ import { Service } from '../../../core/models/interfaces';
       left: 0;
       right: 0;
       bottom: 0;
-      background: linear-gradient(135deg, rgba(155, 89, 182, 0.9) 0%, rgba(52, 152, 219, 0.9) 100%);
+      background: linear-gradient(135deg, rgba(46, 196, 182, 0.9) 0%, rgba(43, 169, 155, 0.9) 100%);
       display: flex;
       flex-direction: column;
       align-items: center;

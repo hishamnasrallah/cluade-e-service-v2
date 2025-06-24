@@ -312,7 +312,7 @@ import {
     }
 
     .progress-percentage {
-      color: #3498db;
+      color: #2EC4B6;
       font-weight: 600;
     }
 
@@ -408,7 +408,7 @@ import {
 
     .description-card {
       margin-bottom: 24px;
-      border-left: 4px solid #3498db;
+      border-left: 4px solid #2EC4B6;
     }
 
     .edit-notice {
@@ -537,7 +537,7 @@ import {
     }
 
     .next-btn {
-      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%);
       color: white;
       font-weight: 600;
       min-width: 180px;

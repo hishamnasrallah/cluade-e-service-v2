@@ -250,7 +250,7 @@ import { Application, ApplicationStatus, getStatusString, getStatusLabel, getSta
     }
 
     .empty-action-btn {
-      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%);
       color: white;
       font-weight: 600;
       height: 44px;
@@ -287,7 +287,7 @@ import { Application, ApplicationStatus, getStatusString, getStatusLabel, getSta
     }
 
     .application-card.status-11 {
-      border-left-color: #3498db;
+      border-left-color: #2EC4B6;
     }
 
     .application-card.status-21 {
@@ -345,7 +345,7 @@ import { Application, ApplicationStatus, getStatusString, getStatusLabel, getSta
 
     .status-chip.status-11 {
       background: rgba(52, 152, 219, 0.1);
-      color: #3498db;
+      color: #2EC4B6;
     }
 
     .status-chip.status-21 {
@@ -418,7 +418,7 @@ import { Application, ApplicationStatus, getStatusString, getStatusLabel, getSta
 
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, #3498db 0%, #2980b9 100%);
+      background: linear-gradient(90deg, #2EC4B6 0%, #2BA99B 100%);
       border-radius: 3px;
       transition: width 0.3s ease;
     }
@@ -438,7 +438,7 @@ import { Application, ApplicationStatus, getStatusString, getStatusLabel, getSta
     }
 
     .primary-action {
-      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%);
       color: white;
       font-weight: 600;
       height: 36px;

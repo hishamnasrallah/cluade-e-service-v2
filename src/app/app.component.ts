@@ -28,7 +28,7 @@ import { ConfigService } from './core/services/config.service';
       <mat-toolbar color="primary" class="app-toolbar">
         <span class="toolbar-title">
           <mat-icon class="app-icon">apps</mat-icon>
-          Low-Code Platform
+          PraXelo Enterprise
         </span>
 
         <span class="spacer"></span>
@@ -92,6 +92,7 @@ import { ConfigService } from './core/services/config.service';
     .app-toolbar {
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       z-index: 1000;
+      background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%)
     }
 
     .toolbar-title {
@@ -143,7 +144,7 @@ import { ConfigService } from './core/services/config.service';
 
     .main-content {
       flex: 1;
-      background: #f5f5f5;
+      background: #F4FDFD;
     }
 
     @media (max-width: 768px) {
@@ -164,7 +165,7 @@ import { ConfigService } from './core/services/config.service';
 export class AppComponent implements OnInit {
   isAuthenticated = false;
   showConfigButton = false;
-  title = 'Low-Code Platform';
+  title = 'PraXelo Enterprise';
 
   constructor(
     private authService: AuthService,

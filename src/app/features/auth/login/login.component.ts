@@ -48,7 +48,7 @@ import { ConfigService } from '../../../core/services/config.service';
             <mat-icon class="app-logo">account_circle</mat-icon>
             <div>
               <mat-card-title>Welcome Back</mat-card-title>
-              <mat-card-subtitle>Sign in to your low-code platform</mat-card-subtitle>
+              <mat-card-subtitle>Sign in to your PraXelo Enterprise</mat-card-subtitle>
             </div>
           </div>
         </mat-card-header>
@@ -191,7 +191,7 @@ import { ConfigService } from '../../../core/services/config.service';
       left: 0;
       right: 0;
       bottom: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%);
       z-index: -1;
     }
 
@@ -283,7 +283,7 @@ import { ConfigService } from '../../../core/services/config.service';
       width: 48px;
       height: 48px;
       color: #495057;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -393,7 +393,7 @@ import { ConfigService } from '../../../core/services/config.service';
     .login-button {
       width: 100%;
       height: 48px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%);
       color: white;
       font-weight: 600;
       font-size: 16px;

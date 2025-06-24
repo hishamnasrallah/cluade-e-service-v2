@@ -15,6 +15,6 @@ export class LookupService {
   }
 
   getLookupOptions(parentLookupId: number): Observable<any> {
-    return this.apiService.get(`/lookups/?parent_lookup=${parentLookupId}`);
+    return this.apiService.get(`/lookups/lookup/lookup/?parent_lookup=${parentLookupId}`);
   }
 }
