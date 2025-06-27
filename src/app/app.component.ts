@@ -28,7 +28,7 @@ import { ConfigService } from './core/services/config.service';
       <mat-toolbar color="primary" class="app-toolbar">
         <span class="toolbar-title">
           <mat-icon class="app-icon">apps</mat-icon>
-          PraXelo Enterprise
+          <img src="../assets/images/logo.png" alt="PraXelo"/>
         </span>
 
         <span class="spacer"></span>
@@ -165,7 +165,7 @@ import { ConfigService } from './core/services/config.service';
 export class AppComponent implements OnInit {
   isAuthenticated = false;
   showConfigButton = false;
-  title = 'PraXelo Enterprise';
+  title = 'PraXelo Enterprise11';
 
   constructor(
     private authService: AuthService,
