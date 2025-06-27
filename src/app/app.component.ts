@@ -28,7 +28,7 @@ import { ConfigService } from './core/services/config.service';
       <mat-toolbar color="primary" class="app-toolbar">
         <span class="toolbar-title">
           <mat-icon class="app-icon">apps</mat-icon>
-          <img src="../assets/images/logo.png" alt="PraXelo"/>
+          <img src="../assets/images/logo.png" alt="PraXelo" class="app-logo"/>
         </span>
 
         <span class="spacer"></span>
