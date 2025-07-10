@@ -1,4 +1,3 @@
-// Fix number-field.component.ts
 import { Component, Input, Output, EventEmitter, forwardRef, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule, ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
@@ -7,13 +6,18 @@ import { MatInputModule } from '@angular/material/input';
 import { ServiceFlowField } from '../../../../../core/models/interfaces';
 
 @Component({
-  selector: 'app-number-field',
+  selector: 'app-datetime-field',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    MatFormFieldModule,
+    MatInputModule
+  ],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
-      useExisting: forwardRef(() => NumberFieldComponent),
+      useExisting: forwardRef(() => DatetimeFieldComponent),
       multi: true
     }
   ],
@@ -24,21 +28,12 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
         <span *ngIf="field.mandatory" class="required-indicator">*</span>
       </mat-label>
       <input matInput
-             type="number"
+             type="datetime-local"
              [formControl]="control"
              [placeholder]="field.display_name"
-             [min]="getMinValue()"
-             [max]="getMaxValue()"
-             [step]="field.integer_only ? 1 : 0.01"
              [readonly]="field.is_disabled">
       <mat-error *ngIf="control.hasError('required')">
         {{ field.display_name }} is required
-      </mat-error>
-      <mat-error *ngIf="control.hasError('min')">
-        Value must be greater than {{ getMinValue() }}
-      </mat-error>
-      <mat-error *ngIf="control.hasError('max')">
-        Value must be less than {{ getMaxValue() }}
       </mat-error>
     </mat-form-field>
   `,
@@ -46,20 +41,24 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
     .full-width {
       width: 100%;
     }
+    .required-indicator {
+      color: #f44336;
+      margin-left: 4px;
+      font-weight: 600;
+    }
   `]
 })
-export class NumberFieldComponent implements ControlValueAccessor, OnInit, OnChanges {
+export class DatetimeFieldComponent implements ControlValueAccessor, OnInit, OnChanges {
   @Input() field!: ServiceFlowField;
   @Input() value: any = null;
   @Output() valueChange = new EventEmitter<any>();
 
-  control = new FormControl(null);
+  control = new FormControl<string | null>(null);
 
   private onChange = (value: any) => {};
   private onTouched = () => {};
 
   ngOnInit() {
-    // Set initial value
     this.control.setValue(this.value, { emitEvent: false });
 
     this.control.valueChanges.subscribe(value => {
@@ -76,14 +75,6 @@ export class NumberFieldComponent implements ControlValueAccessor, OnInit, OnCha
         this.control.setValue(newValue, { emitEvent: false });
       }
     }
-  }
-
-  getMinValue(): number | null {
-    return this.field.value_greater_than ?? null;
-  }
-
-  getMaxValue(): number | null {
-    return this.field.value_less_than ?? null;
   }
 
   writeValue(value: any): void {

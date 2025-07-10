@@ -142,6 +142,20 @@ import {
                 </mat-card>
               </div>
 
+              <!-- Review Page Notice -->
+              <div class="review-page-notice" *ngIf="step.is_review_page">
+                <mat-card class="review-notice-card">
+                  <mat-card-content>
+                    <div class="review-notice-content">
+                      <mat-icon class="review-notice-icon">visibility</mat-icon>
+                      <div class="review-notice-text">
+                        <strong>Review Page:</strong> Please review all the information you have entered.
+                        All fields are read-only on this page. Use the Previous button to go back and make changes if needed.
+                      </div>
+                    </div>
+                  </mat-card-content>
+                </mat-card>
+              </div>
               <!-- Edit Mode Notice -->
               <div class="edit-notice" *ngIf="isEditMode">
                 <mat-card class="notice-card">
@@ -162,6 +176,7 @@ import {
                 <app-dynamic-form
                   [categories]="step.categories"
                   [formData]="wizardState.formData"
+                  [isReviewMode]="step.is_review_page || false"
                   (formChange)="onFormChange($event)">
                 </app-dynamic-form>
               </div>
@@ -242,6 +257,37 @@ import {
     </div>
   `,
   styles: [`
+
+    .review-page-notice {
+      margin-bottom: 24px;
+    }
+
+    .review-notice-card {
+      border-left: 4px solid #2196f3;
+      background: #e3f2fd;
+    }
+
+    .review-notice-content {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .review-notice-icon {
+      color: #1976d2;
+      font-size: 24px;
+      margin-top: 2px;
+    }
+
+    .review-notice-text {
+      color: #1565c0;
+      line-height: 1.5;
+      flex: 1;
+    }
+
+    .review-notice-text strong {
+      color: #0d47a1;
+    }
     .service-wizard-container {
       padding: 24px;
       max-width: 1000px;

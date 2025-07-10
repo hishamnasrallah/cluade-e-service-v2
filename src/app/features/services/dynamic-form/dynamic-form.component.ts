@@ -36,6 +36,10 @@ import {ChoiceFieldComponent} from './field-components/choice-field/choice-field
 import {FileFieldComponent} from './field-components/file-field/file-field.component';
 import {DecimalFieldComponent} from './field-components/decimal-field/decimal-field.component';
 import {PercentageFieldComponent} from './field-components/percentage-field/percentage-field.component';
+import {DateFieldComponent} from './field-components/date-field/date-field.component';
+import {DatetimeFieldComponent} from './field-components/datetime-field/datetime-field.component';
+import {TimeFieldComponent} from './field-components/time-field/time-field.component';
+import {ColorFieldComponent} from './field-components/color-field/color-field.component';
 
 @Component({
   selector: 'app-dynamic-form',
@@ -54,16 +58,21 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
     ChoiceFieldComponent,
     FileFieldComponent,
     DecimalFieldComponent,
-    PercentageFieldComponent
+    PercentageFieldComponent,
+    DateFieldComponent,
+    DatetimeFieldComponent,
+    TimeFieldComponent,
+    ColorFieldComponent
   ],
   template: `
     <div class="dynamic-form-container">
       <form [formGroup]="dynamicForm" class="dynamic-form">
         <div class="categories-container">
           <mat-expansion-panel
-            *ngFor="let category of getCategoriesWithVisibleFields(); trackBy: trackByCategoryId"
-            [expanded]="true"
-            class="category-panel">
+            *ngFor="let category of getCategoriesWithVisibleFields(); let i = index; trackBy: trackByCategoryId"
+            [expanded]="isReviewMode || i === 0"
+            class="category-panel"
+            [class.review-mode-panel]="isReviewMode">
 
             <mat-expansion-panel-header>
               <mat-panel-title>
@@ -74,6 +83,12 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
                 {{ category.name_ara }}
               </mat-panel-description>
             </mat-expansion-panel-header>
+
+            <!-- Add review mode notice -->
+            <div class="review-mode-notice" *ngIf="isReviewMode">
+              <mat-icon class="review-icon">visibility</mat-icon>
+              <span class="review-text">Review Mode - All fields are read-only</span>
+            </div>
 
             <div class="category-content">
               <!-- Loading State for Category -->
@@ -86,9 +101,16 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
 
               <div class="fields-grid" *ngIf="!isCategoryLoading(category)">
                 <div
-                  *ngFor="let field of getVisibleFields(category.fields); trackBy: trackByFieldId"
+                  *ngFor="let field of getSortedVisibleFields(category.fields); trackBy: trackByFieldId"
                   class="field-container"
-                  [class]="'field-type-' + field.field_type">
+                  [class]="'field-type-' + field.field_type"
+                  [class.no-sequence]="!hasSequence(field)">
+
+                  <!-- Sequence indicator for fields without sequence -->
+                  <div class="sequence-warning" *ngIf="!hasSequence(field)">
+                    <mat-icon class="warning-icon">warning_amber</mat-icon>
+                    <span class="warning-text">No sequence defined</span>
+                  </div>
 
                   <!-- Debug info for field values -->
                   <div class="field-debug" *ngIf="debugMode && showFieldDebug">
@@ -103,7 +125,7 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
                   <!-- Text Fields -->
                   <app-text-field
                     *ngIf="isTextField(field)"
-                    [field]="field"
+                    [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-text-field>
@@ -111,7 +133,7 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
                   <!-- Number Fields -->
                   <app-number-field
                     *ngIf="isNumberField(field)"
-                    [field]="field"
+                    [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-number-field>
@@ -119,7 +141,7 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
                   <!-- Boolean Fields -->
                   <app-boolean-field
                     *ngIf="isBooleanField(field)"
-                    [field]="field"
+                    [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-boolean-field>
@@ -127,7 +149,7 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
                   <!-- Choice Fields with improved lookup handling -->
                   <app-choice-field
                     *ngIf="isChoiceField(field)"
-                    [field]="field"
+                    [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
                     [staticOptions]="getStaticOptions(field)"
                     (valueChange)="onFieldChange(field.name, $event)">
@@ -136,7 +158,7 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
                   <!-- File Fields -->
                   <app-file-field
                     *ngIf="isFileField(field)"
-                    [field]="field"
+                    [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-file-field>
@@ -144,7 +166,7 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
                   <!-- Decimal Fields -->
                   <app-decimal-field
                     *ngIf="isDecimalField(field)"
-                    [field]="field"
+                    [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-decimal-field>
@@ -152,10 +174,74 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
                   <!-- Percentage Fields -->
                   <app-percentage-field
                     *ngIf="isPercentageField(field)"
-                    [field]="field"
+                    [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
                     (valueChange)="onFieldChange(field.name, $event)">
                   </app-percentage-field>
+
+                  <!-- Date Fields -->
+                  <app-date-field
+                    *ngIf="field.field_type === 'date'"
+                    [field]="getFieldWithReviewMode(field)"
+                    [value]="getFieldValue(field.name)"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-date-field>
+
+                  <!-- DateTime Fields -->
+                  <app-datetime-field
+                    *ngIf="field.field_type === 'datetime'"
+                    [field]="getFieldWithReviewMode(field)"
+                    [value]="getFieldValue(field.name)"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-datetime-field>
+
+                  <!-- Time Fields -->
+                  <app-time-field
+                    *ngIf="field.field_type === 'time'"
+                    [field]="getFieldWithReviewMode(field)"
+                    [value]="getFieldValue(field.name)"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-time-field>
+
+                  <!-- Color Picker Fields -->
+                  <app-color-field
+                    *ngIf="field.field_type === 'color_picker'"
+                    [field]="getFieldWithReviewMode(field)"
+                    [value]="getFieldValue(field.name)"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-color-field>
+
+                  <!-- Email Fields -->
+                  <app-text-field
+                    *ngIf="isEmailField(field)"
+                    [field]="getFieldWithReviewMode(field)"
+                    [value]="getFieldValue(field.name)"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-text-field>
+
+                  <!-- Phone Number Fields -->
+                  <app-text-field
+                    *ngIf="isPhoneField(field)"
+                    [field]="getFieldWithReviewMode(field)"
+                    [value]="getFieldValue(field.name)"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-text-field>
+
+                  <!-- URL Fields -->
+                  <app-text-field
+                    *ngIf="isUrlField(field)"
+                    [field]="getFieldWithReviewMode(field)"
+                    [value]="getFieldValue(field.name)"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-text-field>
+
+                  <!-- Other Fields (fallback) -->
+                  <app-text-field
+                    *ngIf="isOtherField(field)"
+                    [field]="getFieldWithReviewMode(field)"
+                    [value]="getFieldValue(field.name)"
+                    (valueChange)="onFieldChange(field.name, $event)">
+                  </app-text-field>
                 </div>
               </div>
             </div>
@@ -232,6 +318,132 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
     </div>
   `,
   styles: [`
+
+    .review-mode-panel {
+      border: 2px solid #2196f3;
+      background: rgba(33, 150, 243, 0.05);
+    }
+
+    .review-mode-panel .mat-expansion-panel-header {
+      background: rgba(33, 150, 243, 0.1);
+    }
+
+    .review-mode-notice {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      margin: 0 -16px 16px -16px;
+    }
+
+    .review-icon {
+      color: #1976d2;
+      font-size: 20px;
+    }
+
+    .review-text {
+      color: #1565c0;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    /* Style disabled fields in review mode */
+    .review-mode-panel .field-container {
+      opacity: 0.9;
+    }
+
+    .review-mode-panel .field-container::after {
+      content: none; /* Remove warning animations in review mode */
+    }
+
+    .review-mode-panel .sequence-warning {
+      display: none; /* Hide sequence warnings in review mode */
+    }
+
+
+
+
+    .field-container.no-sequence {
+      position: relative;
+      border: 2px dashed #ff9800;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 24px;
+      background-color: rgba(255, 152, 0, 0.05);
+    }
+
+    .field-container.no-sequence::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #ff9800 0%, #f57c00 50%, #ff9800 100%);
+      background-size: 200% 100%;
+      animation: warningPulse 2s linear infinite;
+    }
+
+    @keyframes warningPulse {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .sequence-warning {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      position: absolute;
+      top: -24px;
+      right: 8px;
+      background: #fff3e0;
+      padding: 4px 12px;
+      border-radius: 12px;
+      border: 1px solid #ffb74d;
+      z-index: 10;
+    }
+
+    .sequence-warning .warning-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #f57c00;
+    }
+
+    .sequence-warning .warning-text {
+      font-size: 11px;
+      color: #e65100;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Adjust field spacing when no sequence indicator is present */
+    .field-container:not(.no-sequence) {
+      margin-bottom: 20px;
+    }
+
+    /* Debug mode sequence display */
+    .field-debug.with-sequence {
+      background: #e8f5e9;
+      border-color: #4caf50;
+    }
+
+    .field-debug.no-sequence {
+      background: #fff3e0;
+      border-color: #ff9800;
+    }
+
+
+
+
+
+
+
+
+
+
     .dynamic-form-container {
       width: 100%;
     }
@@ -275,6 +487,21 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
     .field-container {
       width: 100%;
       position: relative;
+    }
+
+    .field-container:has(input:disabled),
+    .field-container:has(select:disabled),
+    .field-container:has(textarea:disabled) {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    ::ng-deep .field-container .mat-form-field-disabled {
+      opacity: 0.6;
+    }
+
+    ::ng-deep .field-container .mat-form-field-disabled .mat-form-field-label {
+      color: #999;
     }
 
     .field-debug {
@@ -428,6 +655,7 @@ import {PercentageFieldComponent} from './field-components/percentage-field/perc
 export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
   @Input() categories: ServiceFlowCategory[] = [];
   @Input() formData: any = {}; // This comes from the wizard with complete data
+  @Input() isReviewMode: boolean = false;
   @Output() formChange = new EventEmitter<any>();
 
   dynamicForm: FormGroup;
@@ -712,34 +940,34 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
     return this.loadingCategories.has(category.id);
   }
 
-  // Field type checking methods
-  isTextField(field: ServiceFlowField): boolean {
-    return field.field_type === 'text';
-  }
-
-  isNumberField(field: ServiceFlowField): boolean {
-    return field.field_type === 'number';
-  }
-
-  isBooleanField(field: ServiceFlowField): boolean {
-    return field.field_type === 'boolean';
-  }
-
-  isChoiceField(field: ServiceFlowField): boolean {
-    return field.field_type === 'choice';
-  }
-
-  isFileField(field: ServiceFlowField): boolean {
-    return field.field_type === 'file';
-  }
-
-  isDecimalField(field: ServiceFlowField): boolean {
-    return field.field_type === 'decimal';
-  }
-
-  isPercentageField(field: ServiceFlowField): boolean {
-    return field.field_type === 'percentage';
-  }
+  // // Field type checking methods
+  // isTextField(field: ServiceFlowField): boolean {
+  //   return field.field_type === 'text';
+  // }
+  //
+  // isNumberField(field: ServiceFlowField): boolean {
+  //   return field.field_type === 'number';
+  // }
+  //
+  // isBooleanField(field: ServiceFlowField): boolean {
+  //   return field.field_type === 'boolean';
+  // }
+  //
+  // isChoiceField(field: ServiceFlowField): boolean {
+  //   return field.field_type === 'choice';
+  // }
+  //
+  // isFileField(field: ServiceFlowField): boolean {
+  //   return field.field_type === 'file';
+  // }
+  //
+  // isDecimalField(field: ServiceFlowField): boolean {
+  //   return field.field_type === 'decimal';
+  // }
+  //
+  // isPercentageField(field: ServiceFlowField): boolean {
+  //   return field.field_type === 'percentage';
+  // }
 
   // Track by methods for performance
   trackByCategoryId(index: number, category: ServiceFlowCategory): number {
@@ -761,5 +989,93 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
 
       return hasVisibleFields;
     });
+  }
+// Field type checking methods
+  isTextField(field: ServiceFlowField): boolean {
+    return field.field_type === 'text';
+  }
+
+  isNumberField(field: ServiceFlowField): boolean {
+    return field.field_type === 'number';
+  }
+
+  isBooleanField(field: ServiceFlowField): boolean {
+    return field.field_type === 'boolean';
+  }
+
+  isChoiceField(field: ServiceFlowField): boolean {
+    return field.field_type === 'choice' || field.field_type === 'multi_choice' || field.field_type === 'lookup';
+  }
+
+  isFileField(field: ServiceFlowField): boolean {
+    return field.field_type === 'file' || field.field_type === 'image';
+  }
+
+  isDecimalField(field: ServiceFlowField): boolean {
+    return field.field_type === 'decimal' || field.field_type === 'currency';
+  }
+
+  isPercentageField(field: ServiceFlowField): boolean {
+    return field.field_type === 'percentage';
+  }
+
+  isDateField(field: ServiceFlowField): boolean {
+    return field.field_type === 'date' || field.field_type === 'datetime' || field.field_type === 'time';
+  }
+
+  isEmailField(field: ServiceFlowField): boolean {
+    return field.field_type === 'email';
+  }
+
+  isPhoneField(field: ServiceFlowField): boolean {
+    return field.field_type === 'phone_number';
+  }
+
+  isUrlField(field: ServiceFlowField): boolean {
+    return field.field_type === 'url';
+  }
+
+  isOtherField(field: ServiceFlowField): boolean {
+    return !this.isTextField(field) && !this.isNumberField(field) &&
+      !this.isBooleanField(field) && !this.isChoiceField(field) &&
+      !this.isFileField(field) && !this.isDecimalField(field) &&
+      !this.isPercentageField(field) && !this.isDateField(field) &&
+      !this.isEmailField(field) && !this.isPhoneField(field) &&
+      !this.isUrlField(field);
+  }
+
+  getSortedVisibleFields(fields: ServiceFlowField[]): ServiceFlowField[] {
+    const visibleFields = this.getVisibleFields(fields);
+
+    // Separate fields with and without sequence
+    const fieldsWithSequence = visibleFields.filter(field =>
+      field.sequence !== undefined && field.sequence !== null
+    );
+    const fieldsWithoutSequence = visibleFields.filter(field =>
+      field.sequence === undefined || field.sequence === null
+    );
+
+    // Sort fields with sequence by sequence number ascending
+    fieldsWithSequence.sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+
+    // Sort fields without sequence by field_id as fallback
+    fieldsWithoutSequence.sort((a, b) => a.field_id - b.field_id);
+
+    // Return fields with sequence first, then fields without sequence
+    return [...fieldsWithSequence, ...fieldsWithoutSequence];
+  }
+
+  hasSequence(field: ServiceFlowField): boolean {
+    return field.sequence !== undefined && field.sequence !== null;
+  }
+
+  getFieldWithReviewMode(field: ServiceFlowField): ServiceFlowField {
+    if (this.isReviewMode) {
+      return {
+        ...field,
+        is_disabled: true
+      };
+    }
+    return field;
   }
 }

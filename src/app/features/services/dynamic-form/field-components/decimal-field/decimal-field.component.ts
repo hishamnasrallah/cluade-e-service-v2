@@ -19,7 +19,10 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
   ],
   template: `
     <mat-form-field appearance="outline" class="full-width">
-      <mat-label>{{ field.display_name }}</mat-label>
+      <mat-label>
+        {{ field.display_name }}
+        <span *ngIf="field.mandatory" class="required-indicator">*</span>
+      </mat-label>
       <input matInput
              type="number"
              [formControl]="control"

@@ -6,6 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { ServiceFlowField } from '../../../../../core/models/interfaces';
+import { FormValidationService } from '../../../../../core/services/form-validation.service';
 
 @Component({
   selector: 'app-text-field',
@@ -20,7 +21,10 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
   ],
   template: `
     <mat-form-field appearance="outline" class="full-width">
-      <mat-label>{{ field.display_name }}</mat-label>
+      <mat-label>
+        {{ field.display_name }}
+        <span *ngIf="field.mandatory" class="required-indicator">*</span>
+      </mat-label>
       <input matInput
              [formControl]="control"
              [placeholder]="field.display_name"
@@ -42,6 +46,15 @@ import { ServiceFlowField } from '../../../../../core/models/interfaces';
       <mat-error *ngIf="control.hasError('maxlength')">
         Maximum length is {{ field.max_length }}
       </mat-error>
+      <mat-error *ngIf="control.hasError('pattern')">
+        {{ field.display_name }} format is invalid
+      </mat-error>
+      <mat-error *ngIf="control.hasError('allowedCharacters')">
+        {{ field.display_name }} contains invalid characters
+      </mat-error>
+      <mat-error *ngIf="control.hasError('forbiddenWords')">
+        {{ field.display_name }} contains forbidden words
+      </mat-error>
     </mat-form-field>
   `,
   styles: [`
@@ -60,9 +73,28 @@ export class TextFieldComponent implements ControlValueAccessor, OnInit, OnChang
   private onChange = (value: any) => {};
   private onTouched = () => {};
 
+  constructor(private validationService: FormValidationService) {}
+
   ngOnInit() {
     // Set initial value
     this.control.setValue(this.value || '', { emitEvent: false });
+
+    // Add regex validator if pattern exists
+    if (this.field.regex_pattern) {
+      this.control.addValidators((control) => {
+        if (!control.value) return null;
+
+        try {
+          const regex = new RegExp(this.field.regex_pattern!);
+          if (!regex.test(control.value)) {
+            return { pattern: true };
+          }
+        } catch (error) {
+          console.error('Invalid regex pattern:', this.field.regex_pattern);
+        }
+        return null;
+      });
+    }
 
     this.control.valueChanges.subscribe(value => {
       this.onChange(value);

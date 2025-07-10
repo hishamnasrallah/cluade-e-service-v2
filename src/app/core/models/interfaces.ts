@@ -66,8 +66,46 @@ export interface ServiceFlowField {
   name: string;
   field_id: number;
   display_name: string;
+  sequence?: number;
   display_name_ara: string | null;
-  field_type: 'text' | 'number' | 'boolean' | 'choice' | 'file' | 'decimal' | 'percentage';
+  field_type: 'text'
+  | 'textarea'
+  | 'number'
+  | 'decimal'
+  | 'boolean'
+  | 'date'
+  | 'datetime'
+  | 'time'
+  | 'choice'
+  | 'multi_choice'
+  | 'lookup'
+  | 'file'
+  | 'image'
+  | 'json'
+  | 'array'
+  | 'currency'
+  | 'percentage'
+  | 'rating'
+  | 'slug'
+  | 'color_picker'
+  | 'richtext'
+  | 'foreign_key'
+  | 'many_to_many'
+  | 'one_to_one'
+  | 'coordinates'
+  | 'address'
+  | 'password'
+  | 'uuid'
+  | 'ip_address'
+  | 'url'
+  | 'email'
+  | 'phone_number'
+  | 'regex'
+  | 'range'
+  | 'dynamic_field'
+  | 'calculated_field'
+  | 'nested_fields'
+  | 'dynamic_sub_fields';
   mandatory: boolean;
   lookup: number | null;
   allowed_lookups: LookupOption[];
@@ -119,6 +157,7 @@ export interface ServiceFlowStep {
   description: string;
   description_ara: string;
   is_hidden_page: boolean;
+  is_review_page?: boolean; // Add review page flag
   page_id: number;
   categories: ServiceFlowCategory[];
 }
@@ -205,17 +244,43 @@ export interface FormValidationState {
 // Utility types
 export type FieldType =
   | 'text'
+  | 'textarea'
   | 'number'
+  | 'decimal'
   | 'boolean'
-  | 'choice'
-  | 'file'
   | 'date'
   | 'datetime'
   | 'time'
-  | 'email'
+  | 'choice'
+  | 'multi_choice'
+  | 'lookup'
+  | 'file'
+  | 'image'
+  | 'json'
+  | 'array'
+  | 'currency'
+  | 'percentage'
+  | 'rating'
+  | 'slug'
+  | 'color_picker'
+  | 'richtext'
+  | 'foreign_key'
+  | 'many_to_many'
+  | 'one_to_one'
+  | 'coordinates'
+  | 'address'
+  | 'password'
+  | 'uuid'
+  | 'ip_address'
   | 'url'
-  | 'decimal'
-  | 'percentage';
+  | 'email'
+  | 'phone_number'
+  | 'regex'
+  | 'range'
+  | 'dynamic_field'
+  | 'calculated_field'
+  | 'nested_fields'
+  | 'dynamic_sub_fields';
 
 // Updated ApplicationStatus to work with both string and numeric values
 export type ApplicationStatus = 'draft' | 'returned' | 'submitted' | 'completed' | 'all';
