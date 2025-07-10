@@ -393,14 +393,19 @@ export class ApiService {
     const caseDataForJson: any = {};
     const files: File[] = [];
     const fileTypes: string[] = [];
+    const fileFields: string[] = []; // Track field names for files
 
     if (caseData.case_data) {
       for (const [key, value] of Object.entries(caseData.case_data)) {
         if (value instanceof File) {
           files.push(value);
-          // Use the field name as the file field name
-          formData.append(`files`, value, value.name);
+          fileFields.push(key);
+          // Append each file with its field name
+          formData.append(key, value, value.name);
           console.log('📎 API: Added file:', value.name, 'for field:', key);
+
+          // Also add to case_data as a marker that this field has a file
+          caseDataForJson[key] = `__file__${key}`;
         } else if (value !== null && value !== undefined) {
           caseDataForJson[key] = value;
         }
@@ -428,6 +433,7 @@ export class ApiService {
       case_type: caseData.case_type,
       case_data_fields: Object.keys(caseDataForJson),
       files_count: files.length,
+      file_fields: fileFields,
       file_types_count: caseData.file_types?.length || files.length
     });
 
