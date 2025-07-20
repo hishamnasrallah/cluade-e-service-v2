@@ -391,41 +391,47 @@ export class ApiService {
 
     // Process case_data to separate files from other data
     const caseDataForJson: any = {};
-    const files: File[] = [];
-    const fileTypes: string[] = [];
-    const fileFields: string[] = []; // Track field names for files
+    const files: { file: File, fieldName: string, fileType: string }[] = [];
 
     if (caseData.case_data) {
       for (const [key, value] of Object.entries(caseData.case_data)) {
         if (value instanceof File) {
-          files.push(value);
-          fileFields.push(key);
-          // Append each file with its field name
-          formData.append(key, value, value.name);
-          console.log('📎 API: Added file:', value.name, 'for field:', key);
+          // Only process actual File objects, not URLs or strings
+          const fileType = caseData.file_types_mapping?.[key];
 
-          // Also add to case_data as a marker that this field has a file
-          caseDataForJson[key] = `__file__${key}`;
+          if (fileType) {
+            files.push({
+              file: value,
+              fieldName: key,
+              fileType: fileType
+            });
+
+            console.log('📎 API: Added file:', value.name, 'for field:', key, 'with type:', fileType);
+          }
+
+          // Don't add file fields to case_data at all
+        } else if (typeof value === 'string' && value.startsWith('/media/uploads/')) {
+          // Skip existing file URLs - these are already on the server
+          console.log('⏭️ API: Skipping existing file URL for field:', key);
         } else if (value !== null && value !== undefined) {
+          // Add non-file fields to case_data
           caseDataForJson[key] = value;
         }
       }
     }
 
-    // Add case_data as JSON string
+// Add case_data as JSON string
     formData.append('case_data', JSON.stringify(caseDataForJson));
 
-    // Add file_types array if provided or if we have files
-    if (caseData.file_types && Array.isArray(caseData.file_types)) {
-      caseData.file_types.forEach((fileType: string, index: number) => {
-        formData.append(`file_types`, fileType);
-      });
-    } else if (files.length > 0) {
-      // Default file types for detected files
-      files.forEach(() => {
-        formData.append(`file_types`, '01'); // Default file type
-      });
-    }
+// Add files and their types in the correct format
+    files.forEach((fileInfo, index) => {
+      // Add file as files[index]
+      formData.append(`files[${index}]`, fileInfo.file, fileInfo.file.name);
+      // Add file type as file_types[index]
+      formData.append(`file_types[${index}]`, fileInfo.fileType);
+
+      console.log(`📎 API: FormData - files[${index}]:`, fileInfo.file.name, `file_types[${index}]:`, fileInfo.fileType);
+    });
 
     console.log('🔄 API: FormData prepared:', {
       method,
@@ -433,7 +439,7 @@ export class ApiService {
       case_type: caseData.case_type,
       case_data_fields: Object.keys(caseDataForJson),
       files_count: files.length,
-      file_fields: fileFields,
+      // file_fields: fileFields,
       file_types_count: caseData.file_types?.length || files.length
     });
 

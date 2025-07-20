@@ -1157,14 +1157,14 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     console.log('📝 ServiceWizard: Creating new application...');
     this.isSubmitting = true;
 
-    // Collect file types from form fields
-    const fileTypes = this.collectFileTypes();
+    // Collect file types mapping from form fields
+    const fileTypesMapping = this.collectFileTypesMapping();
 
-    const caseData: CaseSubmission = {
+    const caseData: any = {
       applicant_type: 13, // This should be configurable or from user profile
       case_type: this.serviceId,
       case_data: this.wizardState.formData,
-      file_types: fileTypes
+      file_types_mapping: fileTypesMapping
     };
 
     console.log('📦 ServiceWizard: Submitting case data:', caseData);
@@ -1197,14 +1197,14 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     console.log('🔄 ServiceWizard: Updating application...', { shouldSubmit });
     this.isSubmitting = true;
 
-    // Collect file types from form fields
-    const fileTypes = this.collectFileTypes();
+    // Collect file types mapping from form fields
+    const fileTypesMapping = this.collectFileTypesMapping();
 
-    const caseData: Partial<CaseSubmission> = {
+    const caseData: any = {
       applicant_type: this.existingApplication?.applicant_type || 13,
       case_type: this.existingApplication?.case_type || this.serviceId,
       case_data: this.wizardState.formData,
-      file_types: fileTypes
+      file_types_mapping: fileTypesMapping
     };
 
     console.log('📦 ServiceWizard: Updating case data:', caseData);
@@ -1236,28 +1236,31 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private collectFileTypes(): string[] {
-    const fileTypes: string[] = [];
+  private collectFileTypesMapping(): { [fieldName: string]: string } {
+    const fileTypesMapping: { [fieldName: string]: string } = {};
 
     // Iterate through all service flow steps to find file fields
     this.serviceFlowSteps.forEach(step => {
       step.categories.forEach(category => {
         category.fields.forEach(field => {
           if (field.field_type === 'file' && this.wizardState.formData[field.name]) {
-            // If field has allowed_lookups, use the first one's code
+            // Get the file type code from allowed_lookups
             if (field.allowed_lookups && field.allowed_lookups.length > 0) {
-              fileTypes.push(field.allowed_lookups[0].code);
+              const fileTypeCode = field.allowed_lookups[0].code;
+              fileTypesMapping[field.name] = fileTypeCode;
+              console.log(`📎 ServiceWizard: File type mapping - ${field.name}: code="${fileTypeCode}" (${field.allowed_lookups[0].name})`);
             } else {
-              // Default file type if no specific type is configured
-              fileTypes.push('01');
+              // Fallback to default if no allowed_lookups
+              fileTypesMapping[field.name] = '01';
+              console.log(`📎 ServiceWizard: No file type found for ${field.name}, using default "01"`);
             }
           }
         });
       });
     });
 
-    console.log('📎 ServiceWizard: Collected file types:', fileTypes);
-    return fileTypes;
+    console.log('📎 ServiceWizard: Collected file types mapping:', fileTypesMapping);
+    return fileTypesMapping;
   }
 
   private submitCreatedCase(caseId: number): void {
