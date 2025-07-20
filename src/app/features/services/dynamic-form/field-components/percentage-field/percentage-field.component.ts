@@ -52,6 +52,7 @@ export class PercentageFieldComponent implements ControlValueAccessor, OnInit, O
 
   private onChange = (value: any) => {};
   private onTouched = () => {};
+  @Output() fieldBlur = new EventEmitter<{ field: ServiceFlowField; value: any; changed: boolean }>();
 
   ngOnInit() {
     // Set initial value

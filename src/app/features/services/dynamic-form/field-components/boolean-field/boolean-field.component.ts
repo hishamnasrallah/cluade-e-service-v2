@@ -127,6 +127,7 @@ export class BooleanFieldComponent implements ControlValueAccessor, OnInit, OnDe
   }
 
   // ControlValueAccessor implementation
+  @Output() fieldBlur = new EventEmitter<{ field: ServiceFlowField; value: any; changed: boolean }>();
   writeValue(value: boolean): void {
     const boolValue = this.convertToBoolean(value);
     console.log('✏️ BooleanField: Writing value for', this.field.name, ':', boolValue, 'Original:', value);

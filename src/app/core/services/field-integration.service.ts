@@ -207,21 +207,31 @@ export class FieldIntegrationService {
     fieldValue: any,
     formData: { [key: string]: any }
   ): any {
-    // Get the endpoint from the integration configuration
-    // This should be provided in the field integration from service flow
-    let url = this.getIntegrationEndpoint(fieldIntegration);
+    // Use the endpoint from the integration configuration
+    let url = fieldIntegration.endpoint || '';
+
+    // If URL is relative, prepend base URL
+    if (!url.startsWith('http')) {
+      const baseUrl = this.configService.getBaseUrl();
+      url = url.startsWith('/') ? `${baseUrl}${url}` : `${baseUrl}/${url}`;
+    }
     const headers = this.getIntegrationHeaders(fieldIntegration);
     let params = new HttpParams();
     let body: { [key: string]: any } | null = null;
     // Build path parameters
     const pathParams = fieldIntegration.path_param_mapping || {};
-    // Build path parameters
-
-
     for (const [placeholder, fieldName] of Object.entries(pathParams)) {
       const value = fieldName === 'field_value' ? fieldValue : formData[fieldName];
-      url = url.replace(`{${placeholder}}`, encodeURIComponent(value));
+      if (value !== undefined && value !== null) {
+        url = url.replace(`{${placeholder}}`, encodeURIComponent(String(value)));
+      }
     }
+
+
+    // for (const [placeholder, fieldName] of Object.entries(pathParams)) {
+    //   const value = fieldName === 'field_value' ? fieldValue : formData[fieldName];
+    //   url = url.replace(`{${placeholder}}`, encodeURIComponent(value));
+    // }
 
     // Build query parameters
     for (const [placeholder, fieldName] of Object.entries(pathParams)) {

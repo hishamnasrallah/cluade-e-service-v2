@@ -57,6 +57,7 @@ export class NumberFieldComponent implements ControlValueAccessor, OnInit, OnCha
 
   private onChange = (value: any) => {};
   private onTouched = () => {};
+  @Output() fieldBlur = new EventEmitter<{ field: ServiceFlowField; value: any; changed: boolean }>();
 
   ngOnInit() {
     // Set initial value

@@ -51,6 +51,7 @@ export class DecimalFieldComponent implements ControlValueAccessor, OnInit, OnCh
 
   private onChange = (value: any) => {};
   private onTouched = () => {};
+  @Output() fieldBlur = new EventEmitter<{ field: ServiceFlowField; value: any; changed: boolean }>();
 
   ngOnInit() {
     // Set initial value

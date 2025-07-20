@@ -255,6 +255,7 @@ export class ChoiceFieldComponent implements ControlValueAccessor, OnInit, OnDes
   }
 
   // ControlValueAccessor implementation
+  @Output() fieldBlur = new EventEmitter<{ field: ServiceFlowField; value: any; changed: boolean }>();
   writeValue(value: any): void {
     console.log('✏️ ChoiceField: Writing value for', this.field.name, ':', value);
     this.updateControlValue(value);

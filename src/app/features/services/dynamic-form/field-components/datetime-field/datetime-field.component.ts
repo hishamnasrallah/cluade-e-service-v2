@@ -57,6 +57,7 @@ export class DatetimeFieldComponent implements ControlValueAccessor, OnInit, OnC
 
   private onChange = (value: any) => {};
   private onTouched = () => {};
+  @Output() fieldBlur = new EventEmitter<{ field: ServiceFlowField; value: any; changed: boolean }>();
 
   ngOnInit() {
     this.control.setValue(this.value, { emitEvent: false });

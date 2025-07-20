@@ -118,6 +118,7 @@ export class FileFieldComponent implements ControlValueAccessor, OnInit, OnChang
 
   private onChange = (value: File | null) => {};
   private onTouched = () => {};
+  @Output() fieldBlur = new EventEmitter<{ field: ServiceFlowField; value: any; changed: boolean }>();
 
   ngOnInit() {
     console.log('📁 FileField: Initializing field:', this.field.name, 'Initial value:', this.value, 'Type:', typeof this.value);

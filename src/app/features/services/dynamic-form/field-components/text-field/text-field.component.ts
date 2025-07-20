@@ -30,7 +30,9 @@ import { FormValidationService } from '../../../../../core/services/form-validat
              [placeholder]="field.display_name"
              [maxlength]="getMaxLength()"
              [minlength]="getMinLength()"
-             [readonly]="field.is_disabled">
+             [readonly]="field.is_disabled"
+             (focus)="onFocus()"
+             (blur)="onBlur()">
       <mat-hint *ngIf="field.max_length">
         {{ control.value?.length || 0 }}/{{ field.max_length }}
       </mat-hint>
@@ -67,8 +69,11 @@ export class TextFieldComponent implements ControlValueAccessor, OnInit, OnChang
   @Input() field!: ServiceFlowField;
   @Input() value: any = '';
   @Output() valueChange = new EventEmitter<any>();
+  @Output() fieldBlur = new EventEmitter<{ field: ServiceFlowField, value: any, changed: boolean }>();
 
   control = new FormControl('');
+  private initialValue: any = '';
+  private focusValue: any = '';
 
   private onChange = (value: any) => {};
   private onTouched = () => {};
@@ -77,7 +82,8 @@ export class TextFieldComponent implements ControlValueAccessor, OnInit, OnChang
 
   ngOnInit() {
     // Set initial value
-    this.control.setValue(this.value || '', { emitEvent: false });
+    this.initialValue = this.value || '';
+    this.control.setValue(this.initialValue, { emitEvent: false });
 
     // Add regex validator if pattern exists
     if (this.field.regex_pattern) {
@@ -96,11 +102,11 @@ export class TextFieldComponent implements ControlValueAccessor, OnInit, OnChang
       });
     }
 
-    this.control.valueChanges.subscribe(value => {
-      this.onChange(value);
-      this.valueChange.emit(value);
-      this.onTouched();
-    });
+    // this.control.valueChanges.subscribe(value => {
+    //   this.onChange(value);
+    //   this.valueChange.emit(value);
+    //   this.onTouched();
+    // });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -139,5 +145,31 @@ export class TextFieldComponent implements ControlValueAccessor, OnInit, OnChang
     } else {
       this.control.enable();
     }
+  }
+
+
+  onFocus(): void {
+    // Store value when field gains focus
+    this.focusValue = this.control.value;
+  }
+
+  onBlur(): void {
+    const currentValue = this.control.value;
+    const hasChanged = currentValue !== this.focusValue;
+
+    // Emit both value change and blur event
+    if (hasChanged) {
+      this.onChange(currentValue);
+      this.valueChange.emit(currentValue);
+    }
+
+    // Always emit blur event with change status
+    this.fieldBlur.emit({
+      field: this.field,
+      value: currentValue,
+      changed: hasChanged
+    });
+
+    this.onTouched();
   }
 }
