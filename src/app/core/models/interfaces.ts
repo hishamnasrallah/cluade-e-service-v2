@@ -50,6 +50,17 @@ export interface FieldIntegration {
   update_field_on_response?: boolean;
   response_field_path?: string;
   response_field_mapping?: { [key: string]: string };
+
+  // Integration configuration that comes from backend
+  endpoint?: string;
+  method?: string;
+  headers?: { [key: string]: string };
+  authentication_type?: string;
+  auth_credentials?: { [key: string]: string };
+  max_retries?: number;
+  retry_delay?: number;
+  request_body?: { [key: string]: any };
+  query_params?: { [key: string]: string };
 }
 
 

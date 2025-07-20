@@ -19,6 +19,7 @@ import {MatExpansionModule} from '@angular/material/expansion';
 import {MatIconModule} from '@angular/material/icon';
 import {MatButtonModule} from '@angular/material/button';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
+import {MatSnackBar, MatSnackBarModule} from '@angular/material/snack-bar';
 
 import {
   ServiceFlowCategory,
@@ -52,6 +53,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
     MatIconModule,
     MatButtonModule,
     MatProgressSpinnerModule,
+    MatSnackBarModule,
     // Field components
     TextFieldComponent,
     NumberFieldComponent,
@@ -122,7 +124,11 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                       Visible: {{ isFieldVisible(field) }}
                     </small>
                   </div>
-
+                  <!-- Loading indicator for field -->
+                  <div class="field-loading" *ngIf="isFieldLoading(field.name)">
+                    <mat-spinner diameter="20"></mat-spinner>
+                    <span>Loading data...</span>
+                  </div>
                   <!-- Text Fields -->
                   <app-text-field
                     *ngIf="isTextField(field)"
@@ -438,7 +444,21 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
 
 
 
-
+    .field-loading {
+      position: absolute;
+      top: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: white;
+      padding: 4px 12px;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      font-size: 12px;
+      color: #666;
+      z-index: 100;
+    }
 
 
 
@@ -671,7 +691,9 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
   constructor(
     private fb: FormBuilder,
     private apiService: ApiService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private fieldIntegrationService: FieldIntegrationService,
+    private snackBar: MatSnackBar
   ) {
     this.dynamicForm = this.fb.group({});
     console.log('🏗️ DynamicForm: Component created');
@@ -787,8 +809,8 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
     // Update the form control immediately
     this.dynamicForm.get(fieldName)?.setValue(value, { emitEvent: false });
 
-    // Update wizard form data
-    this.wizardState.formData[fieldName] = value;
+    // Update form data
+    this.formData[fieldName] = value;
 
     // Check if field has on_change integrations
     if (field.integrations && field.integrations.length > 0) {
@@ -802,7 +824,7 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
         const updatedFields = await this.fieldIntegrationService.processFieldIntegrations(
           field,
           value,
-          this.wizardState.formData,
+          this.formData,
           'on_change'
         );
 
@@ -817,12 +839,12 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
               control.setValue(targetValue, { emitEvent: false });
             }
 
-            // Update wizard form data
-            this.wizardState.formData[targetFieldName] = targetValue;
+            // Update form data
+            this.formData[targetFieldName] = targetValue;
           });
 
           // Emit the complete updated form data
-          this.formChange.emit(this.wizardState.formData);
+          this.formChange.emit(this.formData);
 
           // Force change detection
           this.cdr.detectChanges();
@@ -845,7 +867,7 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
       }
     } else {
       // No integrations, just emit the change
-      this.formChange.emit(this.wizardState.formData);
+      this.formChange.emit(this.formData);
     }
   }
 

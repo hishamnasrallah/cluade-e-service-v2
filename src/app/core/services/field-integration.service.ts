@@ -137,6 +137,9 @@ export class FieldIntegrationService {
   /**
    * Execute a field integration
    */
+  /**
+   * Execute a field integration
+   */
   private async executeIntegration(
     integration: FieldIntegration,
     field: ServiceFlowField,
@@ -145,15 +148,9 @@ export class FieldIntegrationService {
   ): Promise<{ [key: string]: any } | null> {
     console.log(`🚀 Integration: Executing ${integration.integration_name}`);
 
-    // Get the integration endpoint details from backend
-    const integrationDetails = await this.getIntegrationDetails(integration.integration_id);
-    if (!integrationDetails) {
-      throw new Error('Integration details not found');
-    }
-
-    // Build the request
+    // Integration details are already in the field integration object from service flow
+    // Build the request using the integration configuration
     const request = this.buildIntegrationRequest(
-      integrationDetails,
       integration,
       fieldValue,
       formData
@@ -163,7 +160,7 @@ export class FieldIntegrationService {
     const startTime = Date.now();
 
     try {
-      const response = await this.makeIntegrationCall(request, integrationDetails).toPromise();
+      const response = await this.makeIntegrationCall(request, integration).toPromise();
 
       // Log the integration call
       this.logIntegrationCall({
@@ -201,43 +198,25 @@ export class FieldIntegrationService {
     }
   }
 
-  /**
-   * Get integration details from backend
-   */
-  private async getIntegrationDetails(integrationId: number): Promise<any> {
-    // In a real implementation, this would fetch from backend
-    // For now, return a mock based on the documentation
-    return {
-      id: integrationId,
-      endpoint: 'http://localhost:8001/api/citizens/{national_id}/',
-      method: 'GET',
-      path_param_mapping: { national_id: 'national_id' },
-      headers: { 'Accept': 'application/json' },
-      authentication_type: 'None',
-      max_retries: 3,
-      retry_delay: 60
-    };
-  }
 
   /**
    * Build the integration request
    */
   private buildIntegrationRequest(
-    integrationDetails: any,
     fieldIntegration: FieldIntegration,
     fieldValue: any,
     formData: { [key: string]: any }
   ): any {
-    let url = integrationDetails.endpoint;
-    const headers = { ...integrationDetails.headers };
+    // Get the endpoint from the integration configuration
+    // This should be provided in the field integration from service flow
+    let url = this.getIntegrationEndpoint(fieldIntegration);
+    const headers = this.getIntegrationHeaders(fieldIntegration);
     let params = new HttpParams();
-    let body = null;
-
+    let body: { [key: string]: any } | null = null;
     // Build path parameters
-    const pathParams = {
-      ...integrationDetails.path_param_mapping,
-      ...fieldIntegration.path_param_mapping
-    };
+    const pathParams = fieldIntegration.path_param_mapping || {};
+    // Build path parameters
+
 
     for (const [placeholder, fieldName] of Object.entries(pathParams)) {
       const value = fieldName === 'field_value' ? fieldValue : formData[fieldName];
@@ -245,21 +224,27 @@ export class FieldIntegrationService {
     }
 
     // Build query parameters
-    const queryParams = {
-      ...integrationDetails.query_params,
-      ...fieldIntegration.query_param_mapping
-    };
+    for (const [placeholder, fieldName] of Object.entries(pathParams)) {
+      const value = fieldName === 'field_value' ? fieldValue : formData[fieldName as string];
+      url = url.replace(`{${placeholder}}`, encodeURIComponent(value));
+    }
 
-    for (const [paramName, fieldName] of Object.entries(queryParams || {})) {
-      const value = fieldName === 'field_value' ? fieldValue : formData[fieldName];
+    // Build query parameters
+    const queryParams = fieldIntegration.query_param_mapping || {};
+
+    for (const [paramName, fieldName] of Object.entries(queryParams)) {
+      const value = fieldName === 'field_value' ? fieldValue : formData[fieldName as string];
       if (value !== undefined && value !== null) {
         params = params.set(paramName, value);
       }
     }
 
+    // Get HTTP method
+    const method = this.getIntegrationMethod(fieldIntegration);
+
     // Build request body for POST/PUT
-    if (integrationDetails.method === 'POST' || integrationDetails.method === 'PUT') {
-      body = { ...integrationDetails.request_body };
+    if (method === 'POST' || method === 'PUT') {
+      body = {} as { [key: string]: any };
 
       if (fieldIntegration.payload_mapping) {
         for (const [bodyField, formField] of Object.entries(fieldIntegration.payload_mapping)) {
@@ -269,21 +254,22 @@ export class FieldIntegrationService {
       }
     }
 
-    // Build headers
+    // Build headers with field mapping
     if (fieldIntegration.header_mapping) {
       for (const [headerName, fieldName] of Object.entries(fieldIntegration.header_mapping)) {
-        const value = fieldName === 'field_value' ? fieldValue : formData[fieldName];
+        const value = fieldName === 'field_value' ? fieldValue : formData[fieldName as string];
         headers[headerName] = value;
       }
     }
 
-    return { url, method: integrationDetails.method, headers, params, body };
+    return { url, method, headers, params, body };
+
   }
 
   /**
    * Make the actual integration API call
    */
-  private makeIntegrationCall(request: any, integrationDetails: any): Observable<any> {
+  private makeIntegrationCall(request: any, integration: FieldIntegration): Observable<any> {
     const httpOptions = {
       headers: new HttpHeaders(request.headers),
       params: request.params
@@ -308,13 +294,16 @@ export class FieldIntegrationService {
         return throwError(() => new Error(`Unsupported HTTP method: ${request.method}`));
     }
 
-    // Add retry logic
+    // Add retry logic (get from integration config if available)
+    const maxRetries = (integration as any).max_retries || 3;
+    const retryDelay = (integration as any).retry_delay || 1;
+
     return httpCall.pipe(
       retry({
-        count: integrationDetails.max_retries || 3,
+        count: maxRetries,
         delay: (error, retryCount) => {
-          console.log(`🔄 Integration: Retry attempt ${retryCount} after ${integrationDetails.retry_delay}s`);
-          return of(error).pipe(delay((integrationDetails.retry_delay || 60) * 1000));
+          console.log(`🔄 Integration: Retry attempt ${retryCount} after ${retryDelay}s`);
+          return of(error).pipe(delay(retryDelay * 1000));
         }
       }),
       catchError(error => {
@@ -415,5 +404,61 @@ export class FieldIntegrationService {
    */
   clearIntegrationLogs(): void {
     this.integrationLogs = [];
+  }
+
+  /**
+   * Get integration endpoint from field integration
+   */
+  private getIntegrationEndpoint(integration: FieldIntegration): string {
+    // The endpoint should be configured in the backend and included in the integration
+    // For now, we'll construct it based on the integration type
+    const baseUrl = this.configService.getBaseUrl();
+
+    // This should come from the integration configuration in service flow
+    // The backend should provide the full endpoint configuration
+    if ((integration as any).endpoint) {
+      return (integration as any).endpoint;
+    }
+
+    // Fallback - this should be removed once backend provides endpoint
+    console.warn('⚠️ Integration: No endpoint found in integration config, using fallback');
+    return `${baseUrl}/api/integration/${integration.integration_id}/`;
+  }
+
+  /**
+   * Get integration headers from field integration
+   */
+  private getIntegrationHeaders(integration: FieldIntegration): any {
+    const headers: any = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+
+    // Add any custom headers from integration configuration
+    if ((integration as any).headers) {
+      Object.assign(headers, (integration as any).headers);
+    }
+
+    // Add authentication if configured
+    if ((integration as any).authentication_type && (integration as any).auth_credentials) {
+      switch ((integration as any).authentication_type) {
+        case 'Bearer':
+          headers['Authorization'] = `Bearer ${(integration as any).auth_credentials.token}`;
+          break;
+        case 'Basic':
+          const basicAuth = btoa(`${(integration as any).auth_credentials.username}:${(integration as any).auth_credentials.password}`);
+          headers['Authorization'] = `Basic ${basicAuth}`;
+          break;
+      }
+    }
+
+    return headers;
+  }
+
+  /**
+   * Get HTTP method from integration
+   */
+  private getIntegrationMethod(integration: FieldIntegration): string {
+    return (integration as any).method || 'GET';
   }
 }

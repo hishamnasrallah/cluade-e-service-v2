@@ -15,6 +15,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 
 import { routes } from './app.routes';
 import { AuthInterceptor } from './core/interceptors/auth.interceptor';
+import { IntegrationInterceptor } from './core/interceptors/integration.interceptor';
 
 // Services
 import { AuthService } from './core/services/auth.service';
@@ -44,7 +45,11 @@ export const appConfig: ApplicationConfig = {
     ConfigService,
     ApiService,
     FormValidationService,
-
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: IntegrationInterceptor,
+      multi: true
+    },
     // HTTP Interceptors
     {
       provide: HTTP_INTERCEPTORS,
