@@ -27,6 +27,7 @@ import {
   LookupOption
 } from '../../../core/models/interfaces';
 import {ApiService} from '../../../core/services/api.service';
+import { FieldIntegrationService } from '../../../core/services/field-integration.service';
 
 // Import all field components
 import {TextFieldComponent} from './field-components/text-field/text-field.component';
@@ -127,7 +128,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="isTextField(field)"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-text-field>
 
                   <!-- Number Fields -->
@@ -135,7 +136,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="isNumberField(field)"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-number-field>
 
                   <!-- Boolean Fields -->
@@ -143,7 +144,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="isBooleanField(field)"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-boolean-field>
 
                   <!-- Choice Fields with improved lookup handling -->
@@ -152,7 +153,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
                     [staticOptions]="getStaticOptions(field)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-choice-field>
 
                   <!-- File Fields -->
@@ -160,7 +161,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="isFileField(field)"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-file-field>
 
                   <!-- Decimal Fields -->
@@ -168,7 +169,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="isDecimalField(field)"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-decimal-field>
 
                   <!-- Percentage Fields -->
@@ -176,7 +177,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="isPercentageField(field)"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-percentage-field>
 
                   <!-- Date Fields -->
@@ -184,7 +185,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="field.field_type === 'date'"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-date-field>
 
                   <!-- DateTime Fields -->
@@ -192,7 +193,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="field.field_type === 'datetime'"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-datetime-field>
 
                   <!-- Time Fields -->
@@ -200,7 +201,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="field.field_type === 'time'"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-time-field>
 
                   <!-- Color Picker Fields -->
@@ -208,7 +209,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="field.field_type === 'color_picker'"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-color-field>
 
                   <!-- Email Fields -->
@@ -216,7 +217,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="isEmailField(field)"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-text-field>
 
                   <!-- Phone Number Fields -->
@@ -224,7 +225,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="isPhoneField(field)"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-text-field>
 
                   <!-- URL Fields -->
@@ -232,7 +233,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="isUrlField(field)"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-text-field>
 
                   <!-- Other Fields (fallback) -->
@@ -240,7 +241,7 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     *ngIf="isOtherField(field)"
                     [field]="getFieldWithReviewMode(field)"
                     [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)">
+                    (valueChange)="onFieldChangeWithIntegration(field, field.name, $event)">
                   </app-text-field>
                 </div>
               </div>
@@ -779,6 +780,87 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
         return '';
     }
   }
+  // Add this method to handle field changes with integrations:
+  async onFieldChangeWithIntegration(field: ServiceFlowField, fieldName: string, value: any): Promise<void> {
+    console.log('🔧 DynamicForm: Field changed with integration check:', fieldName, '=', value);
+
+    // Update the form control immediately
+    this.dynamicForm.get(fieldName)?.setValue(value, { emitEvent: false });
+
+    // Update wizard form data
+    this.wizardState.formData[fieldName] = value;
+
+    // Check if field has on_change integrations
+    if (field.integrations && field.integrations.length > 0) {
+      console.log('🔄 DynamicForm: Field has integrations, processing...');
+
+      try {
+        // Show loading indicator
+        this.setFieldLoading(fieldName, true);
+
+        // Process integrations
+        const updatedFields = await this.fieldIntegrationService.processFieldIntegrations(
+          field,
+          value,
+          this.wizardState.formData,
+          'on_change'
+        );
+
+        // Apply field updates from integration response
+        if (updatedFields && Object.keys(updatedFields).length > 0) {
+          console.log('📝 DynamicForm: Applying field updates from integration:', updatedFields);
+
+          // Update form controls
+          Object.entries(updatedFields).forEach(([targetFieldName, targetValue]) => {
+            const control = this.dynamicForm.get(targetFieldName);
+            if (control) {
+              control.setValue(targetValue, { emitEvent: false });
+            }
+
+            // Update wizard form data
+            this.wizardState.formData[targetFieldName] = targetValue;
+          });
+
+          // Emit the complete updated form data
+          this.formChange.emit(this.wizardState.formData);
+
+          // Force change detection
+          this.cdr.detectChanges();
+
+          // Show success message
+          this.snackBar.open('Data loaded successfully', 'Close', {
+            duration: 2000,
+            panelClass: ['success-snackbar']
+          });
+        }
+      } catch (error) {
+        console.error('❌ DynamicForm: Integration error:', error);
+        this.snackBar.open('Failed to load data', 'Close', {
+          duration: 3000,
+          panelClass: ['error-snackbar']
+        });
+      } finally {
+        // Hide loading indicator
+        this.setFieldLoading(fieldName, false);
+      }
+    } else {
+      // No integrations, just emit the change
+      this.formChange.emit(this.wizardState.formData);
+    }
+  }
+
+// Add loading state management:
+  private fieldLoadingStates = new Map<string, boolean>();
+
+  setFieldLoading(fieldName: string, loading: boolean): void {
+    this.fieldLoadingStates.set(fieldName, loading);
+    this.cdr.detectChanges();
+  }
+
+  isFieldLoading(fieldName: string): boolean {
+    return this.fieldLoadingStates.get(fieldName) || false;
+  }
+
 
   onFieldChange(fieldName: string, value: any): void {
     console.log('🔧 DynamicForm: Field changed:', fieldName, '=', value, 'Type:', typeof value);

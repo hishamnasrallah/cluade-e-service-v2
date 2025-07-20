@@ -11,6 +11,48 @@ export interface LoginResponse {
   refresh: string;
 }
 
+// Integration Models
+export interface Integration {
+  id: number;
+  name: string;
+  integration_type: string;
+  endpoint: string;
+  method: string;
+  path_param_mapping?: { [key: string]: string };
+  headers?: { [key: string]: string };
+  request_body?: { [key: string]: any };
+  query_params?: { [key: string]: string };
+  authentication_type: string;
+  auth_credentials?: { [key: string]: string };
+  response_mapping?: { [key: string]: string };
+  max_retries: number;
+  retry_delay: number;
+  active_ind: boolean;
+}
+
+export interface FieldIntegration {
+  id: number;
+  integration_id: number;
+  integration_name: string;
+  trigger_event: 'on_change' | 'pre_save' | 'post_save';
+  is_async: boolean;
+  has_condition: boolean;
+  updates_fields: boolean;
+  target_fields: string[];
+  order: number;
+  wait_for_response: boolean;
+  min_length_trigger?: number | null;
+  condition_expression?: string;
+  path_param_mapping?: { [key: string]: string };
+  payload_mapping?: { [key: string]: string };
+  query_param_mapping?: { [key: string]: string };
+  header_mapping?: { [key: string]: string };
+  update_field_on_response?: boolean;
+  response_field_path?: string;
+  response_field_mapping?: { [key: string]: string };
+}
+
+
 // Service models
 export interface Service {
   id: number;
@@ -64,6 +106,7 @@ export interface VisibilityCondition {
 // Service flow field models - Enhanced with better typing
 export interface ServiceFlowField {
   name: string;
+  integrations?: FieldIntegration[];
   field_id: number;
   display_name: string;
   sequence?: number;
@@ -140,6 +183,20 @@ export interface ServiceFlowField {
   max_file_size?: number | null;
   image_max_width?: number | null;
   image_max_height?: number | null;
+}
+
+
+// Integration API call log for debugging
+export interface IntegrationCallLog {
+  id: number;
+  field_name: string;
+  integration_name: string;
+  request_url: string;
+  request_data: any;
+  response_data: any;
+  status_code: number;
+  error_message?: string;
+  created_at: string;
 }
 
 export interface ServiceFlowCategory {
@@ -963,6 +1020,20 @@ export function debugEvaluateConditionRule(
   return { result, debug: debugInfo };
 }
 
+export function fieldHasIntegrations(field: ServiceFlowField): boolean {
+  return !!(field.integrations && field.integrations.length > 0);
+}
+
+export function getFieldIntegrationsByEvent(
+  field: ServiceFlowField,
+  event: 'on_change' | 'pre_save' | 'post_save'
+): FieldIntegration[] {
+  if (!field.integrations) return [];
+  return field.integrations
+    .filter(integration => integration.trigger_event === event)
+    .sort((a, b) => a.order - b.order);
+}
+
 /**
  * Enhanced value comparison with debugging
  */
@@ -1030,4 +1101,5 @@ function debugCompareValues(
   const result = operation === '=' ? fieldStr === ruleStr : fieldStr !== ruleStr;
   debugInfo.stringComparisonResult = result;
   return result;
+
 }
