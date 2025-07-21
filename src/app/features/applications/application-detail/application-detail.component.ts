@@ -13,7 +13,22 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { NotesComponent } from '../../notes/notes.component';
 import { ApiService } from '../../../core/services/api.service';
-import { Application, getStatusLabel, getStatusIcon, ServiceFlowResponse } from '../../../core/models/interfaces';
+import {
+  Application,
+  getStatusLabel,
+  getStatusIcon,
+  ServiceFlowResponse,
+  ServiceFlowField,
+  LookupOption,
+  LookupResponse, ServicesResponse
+} from '../../../core/models/interfaces';
+import { Subject, forkJoin, of } from 'rxjs';
+import { takeUntil, switchMap, map, catchError } from 'rxjs/operators';
+
+interface FieldMetadata {
+  field: ServiceFlowField;
+  lookupOptions?: LookupOption[];
+}
 
 @Component({
   selector: 'app-application-detail',
@@ -105,8 +120,16 @@ import { Application, getStatusLabel, getStatusIcon, ServiceFlowResponse } from 
                 <span class="info-value">#{{ application.id }}</span>
               </div>
               <div class="info-item">
-                <span class="info-label">Case Type:</span>
-                <span class="info-value">{{ application.case_type }}</span>
+                <span class="info-label">Service:</span>
+                <span class="info-value">{{ serviceName || 'Loading...' }}</span>
+              </div>
+<!--              <div class="info-item">-->
+<!--                <span class="info-label">Applicant Type:</span>-->
+<!--                <span class="info-value">{{ applicantTypeName || 'Loading...' }}</span>-->
+<!--              </div>-->
+              <div class="info-item" *ngIf="application.sub_status">
+                <span class="info-label">Sub Status:</span>
+                <span class="info-value">{{ subStatusName || 'Loading...' }}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">Created:</span>
@@ -638,6 +661,12 @@ export class ApplicationDetailComponent implements OnInit {
   error: string | null = null;
   applicationId: number = 0;
 
+  // New properties for lookup resolution
+  fieldMetadata: Map<string, FieldMetadata> = new Map();
+  lookupCache: Map<number, LookupOption[]> = new Map();
+  serviceName: string = '';
+  applicantTypeName: string = '';
+  subStatusName: string = '';
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -662,15 +691,105 @@ export class ApplicationDetailComponent implements OnInit {
 
     console.log('📋 ApplicationDetail: Loading application with ID:', this.applicationId);
 
-    this.apiService.getCase(this.applicationId).subscribe({
-      next: (application: Application) => {
+    this.apiService.getCase(this.applicationId).pipe(
+      switchMap((application: Application) => {
         console.log('✅ ApplicationDetail: Application loaded:', application);
         this.application = application;
+
+        // Fetch all system lookups in parallel
+        let requests: any[];
+        requests = [];
+
+        // 1. Get service name (case_type)
+        requests.push(
+          this.apiService.getServices().pipe(
+            map((response: ServicesResponse) => {
+              const service = response.results.find(s => s.id === application.case_type);
+              if (service) {
+                this.serviceName = service.name;
+              }
+              return service?.code || application.case_type.toString();
+            })
+          )
+        );
+
+        // 2. Get applicant type name
+        if (application.applicant_type) {
+          requests.push(
+            this.apiService.getLookupOptions(application.applicant_type).pipe(
+              map((response: LookupResponse) => {
+                if (response.results && response.results.length > 0) {
+                  this.applicantTypeName = response.results[0].name;
+                }
+              }),
+              catchError(() => of(null))
+            )
+          );
+        }
+
+        // 3. Get sub-status name if exists
+        if (application.sub_status) {
+          requests.push(
+            this.apiService.getLookupOptions(application.sub_status).pipe(
+              map((response: LookupResponse) => {
+                if (response.results && response.results.length > 0) {
+                  this.subStatusName = response.results[0].name;
+                }
+              }),
+              catchError(() => of(null))
+            )
+          );
+        }
+
+        return forkJoin(requests).pipe(
+          map(() => requests[0]) // Return the service code for next step
+        );
+      }),
+      switchMap((serviceCode: any) => {
+        console.log('🔍 ApplicationDetail: Loading service flow for code:', serviceCode);
+        // Load service flow to get field metadata
+        return this.apiService.getServiceFlow(serviceCode);
+      }),
+      switchMap((serviceFlowResponse: ServiceFlowResponse) => {
+        console.log('✅ ApplicationDetail: Service flow loaded');
+
+        // Extract all fields and build metadata
+        this.buildFieldMetadata(serviceFlowResponse);
+
+        // Get unique lookup IDs that need to be fetched
+        const lookupIds = this.getUniqueLookupIds();
+
+        // Fetch all lookup options in parallel
+        if (lookupIds.length > 0) {
+          console.log('🔍 ApplicationDetail: Fetching lookup options for IDs:', lookupIds);
+          const lookupRequests = lookupIds.map(id =>
+            this.apiService.getLookupOptions(id).pipe(
+              map((response: LookupResponse) => ({
+                lookupId: id,
+                options: response.results || []
+              })),
+              catchError(() => of({ lookupId: id, options: [] }))
+            )
+          );
+
+          return forkJoin(lookupRequests);
+        }
+
+        return of([]);
+      })
+    ).subscribe({
+      next: (lookupResults: any[]) => {
+        // Cache lookup options
+        lookupResults.forEach(result => {
+          this.lookupCache.set(result.lookupId, result.options);
+        });
+
+        console.log('✅ ApplicationDetail: All data loaded successfully');
         this.isLoading = false;
       },
       error: (error: any) => {
-        console.error('❌ ApplicationDetail: Error loading application:', error);
-        this.error = error.message || 'Failed to load application';
+        console.error('❌ ApplicationDetail: Error loading application data:', error);
+        this.error = error.message || 'Failed to load application details';
         this.isLoading = false;
       }
     });
@@ -715,17 +834,23 @@ export class ApplicationDetailComponent implements OnInit {
 
     Object.entries(caseData).forEach(([key, value]) => {
       // Skip uploaded_files as they're handled separately
-      if (key === 'uploaded_files') return;
+      if (key === 'uploaded_files' ||
+        key === 'case_type' ||
+        key === 'applicant_type' ||
+        key === 'sub_status' ||
+        key === 'status') return;
 
-      // Format the field name (convert snake_case to readable format)
-      const label = this.formatFieldName(key);
+      // Get field metadata to get proper display name
+      const metadata = this.fieldMetadata.get(key);
+      const label = metadata?.field.display_name || this.formatFieldName(key);
 
       formattedData.push({
         key,
         label,
         value,
-        displayValue: this.formatFieldValue(value),
-        isFile: false
+        displayValue: this.getFieldDisplayValue(key, value), // Use new method
+        isFile: false,
+        fieldType: metadata?.field.field_type || 'text'
       });
     });
 
@@ -888,5 +1013,52 @@ export class ApplicationDetailComponent implements OnInit {
         });
       }
     });
+  }
+
+  private buildFieldMetadata(serviceFlowResponse: ServiceFlowResponse): void {
+    serviceFlowResponse.service_flow.forEach(step => {
+      step.categories.forEach(category => {
+        category.fields.forEach(field => {
+          this.fieldMetadata.set(field.name, { field });
+        });
+      });
+    });
+  }
+
+  private getUniqueLookupIds(): number[] {
+    const lookupIds = new Set<number>();
+
+    this.fieldMetadata.forEach((metadata) => {
+      if (metadata.field.lookup) {
+        lookupIds.add(metadata.field.lookup);
+      }
+    });
+
+    return Array.from(lookupIds);
+  }
+
+  private getFieldDisplayValue(fieldName: string, value: any): string {
+    const metadata = this.fieldMetadata.get(fieldName);
+
+    if (!metadata || !metadata.field.lookup) {
+      // Not a lookup field, return value as is
+      return this.formatFieldValue(value);
+    }
+
+    // This is a lookup field, get the display name
+    const lookupOptions = this.lookupCache.get(metadata.field.lookup) || [];
+
+    if (Array.isArray(value)) {
+      // Multiple choice field
+      const displayNames = value.map(id => {
+        const option = lookupOptions.find(opt => opt.id === Number(id));
+        return option ? option.name : `Unknown (${id})`;
+      });
+      return displayNames.join(', ');
+    } else {
+      // Single choice field
+      const option = lookupOptions.find(opt => opt.id === Number(value));
+      return option ? option.name : this.formatFieldValue(value);
+    }
   }
 }

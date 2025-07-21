@@ -62,11 +62,11 @@ import { Application, ApplicationStatus, getStatusString, getStatusLabel, getSta
               <mat-card-header class="card-header">
                 <div class="application-info">
                   <mat-card-title class="application-title">
-                    {{ app.title || 'Untitled Application' }}
-                  </mat-card-title>
-                  <mat-card-subtitle class="application-service">
                     {{ app.service_name || 'Unknown Service' }}
-                  </mat-card-subtitle>
+                  </mat-card-title>
+<!--                  <mat-card-subtitle class="application-service">-->
+<!--                    {{ app.service_name || 'Unknown Service' }}-->
+<!--                  </mat-card-subtitle>-->
                 </div>
 
                 <div class="header-actions">

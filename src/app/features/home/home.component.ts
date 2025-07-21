@@ -16,8 +16,16 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 
 import { ApiService } from '../../core/services/api.service';
-import { Application, ApplicationsResponse, ApplicationStatus, getStatusNumbers } from '../../core/models/interfaces';
+import {
+  Application,
+  ApplicationsResponse,
+  ApplicationStatus,
+  getStatusNumbers,
+  ServicesResponse
+} from '../../core/models/interfaces';
 import { ApplicationsListComponent } from '../applications/applications-list/applications-list.component';
+import { Observable, of } from 'rxjs';
+import { switchMap, map, catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-home',
@@ -407,6 +415,8 @@ import { ApplicationsListComponent } from '../applications/applications-list/app
 export class HomeComponent implements OnInit {
   applications: Application[] = [];
   isLoading = false;
+  // activeTab: ApplicationStatus = 'all';
+  error: string | null = null;  // Add this line
   selectedTabIndex = 0;
 
   applicationStats = [
@@ -427,26 +437,38 @@ export class HomeComponent implements OnInit {
     this.loadApplications();
   }
 
-  loadApplications(): void {
+  loadApplications(status?: ApplicationStatus): void {
     this.isLoading = true;
+    this.error = null;
 
-    this.apiService.getApplications().subscribe({
-      next: (response: ApplicationsResponse) => {
-        this.applications = response.results || [];
-        this.updateStats();
+    const statusNumbers = status && status !== 'all' ? getStatusNumbers(status) : undefined;
+
+    console.log('📋 Home: Loading applications with status:', status, 'Numbers:', statusNumbers);
+
+    this.apiService.getApplications().pipe(
+      switchMap((response: ApplicationsResponse) => {
+        console.log('✅ Home: Applications loaded:', response);
+
+        let filteredApps = response.results;
+        if (status && status !== 'all' && statusNumbers) {
+          filteredApps = response.results.filter(app =>
+            statusNumbers.includes(app.status)
+          );
+        }
+
+        // Enrich applications with service names
+        return this.enrichApplicationsWithServiceNames(filteredApps);
+      })
+    ).subscribe({
+      next: (enrichedApplications: Application[]) => {
+        console.log('✅ Home: Applications enriched with service names');
+        this.applications = enrichedApplications;
         this.isLoading = false;
-        console.log('✅ HomeComponent: Applications loaded:', this.applications.length);
       },
       error: (error: any) => {
-        console.error('❌ HomeComponent: Error loading applications:', error);
-        this.applications = [];
-        this.updateStats();
+        console.error('❌ Home: Error loading applications:', error);
+        this.error = error.message || 'Failed to load applications';
         this.isLoading = false;
-
-        this.snackBar.open('Failed to load applications. Please try again.', 'Close', {
-          duration: 5000,
-          panelClass: ['error-snackbar']
-        });
       }
     });
   }
@@ -455,7 +477,33 @@ export class HomeComponent implements OnInit {
     console.log('🔄 HomeComponent: Refreshing applications');
     this.loadApplications();
   }
+  private enrichApplicationsWithServiceNames(applications: Application[]): Observable<Application[]> {
+    if (applications.length === 0) {
+      return of([]);
+    }
 
+    // Get services to map case_type to service names
+    return this.apiService.getServices().pipe(
+      map((servicesResponse: ServicesResponse) => {
+        const servicesMap = new Map<number, string>();
+
+        // Create a map of service ID to service name
+        servicesResponse.results.forEach(service => {
+          servicesMap.set(service.id, service.name);
+        });
+
+        // Enrich each application with service name
+        return applications.map(app => ({
+          ...app,
+          service_name: servicesMap.get(app.case_type) || 'Unknown Service'
+        }));
+      }),
+      catchError(() => {
+        console.error('Failed to fetch services, returning applications without service names');
+        return of(applications);
+      })
+    );
+  }
   getApplicationsByStatus(status: ApplicationStatus): Application[] {
     if (status === 'all') {
       return this.applications;
@@ -603,6 +651,7 @@ export class HomeComponent implements OnInit {
     this.viewApplication(application);
   }
 
+
   /**
    * Download application documents
    */
@@ -616,4 +665,6 @@ export class HomeComponent implements OnInit {
       panelClass: ['info-snackbar']
     });
   }
+
+
 }
