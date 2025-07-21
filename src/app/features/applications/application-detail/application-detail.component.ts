@@ -11,7 +11,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-
+import { NotesComponent } from '../../notes/notes.component';
 import { ApiService } from '../../../core/services/api.service';
 import { Application, getStatusLabel, getStatusIcon, ServiceFlowResponse } from '../../../core/models/interfaces';
 
@@ -25,7 +25,8 @@ import { Application, getStatusLabel, getStatusIcon, ServiceFlowResponse } from 
     MatIconModule,
     MatProgressSpinnerModule,
     MatChipsModule,
-    MatDividerModule
+    MatDividerModule,
+    NotesComponent
   ],
   template: `
     <div class="application-detail-container">
@@ -230,6 +231,8 @@ import { Application, getStatusLabel, getStatusIcon, ServiceFlowResponse } from 
             </div>
           </mat-card-content>
         </mat-card>
+        <!-- Application Notes -->
+        <app-notes [caseId]="application.id"></app-notes>
       </div>
     </div>
   `,
