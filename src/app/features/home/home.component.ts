@@ -16,6 +16,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 
 import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
 import { LookupCacheService } from '../../core/services/lookup-cache.service';
 import {
   Application,
@@ -351,9 +352,12 @@ export class HomeComponent implements OnInit {
   applicationStats: any[] = [];
   statusTabs: any[] = [];
 
+  private userGroups: number[] = [];
+
   constructor(
     private router: Router,
     private apiService: ApiService,
+    private authService: AuthService,
     private lookupCache: LookupCacheService,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
@@ -361,6 +365,11 @@ export class HomeComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Get user info including groups
+    const userInfo = this.authService.getUserInfo();
+    this.userGroups = userInfo?.userGroups || [];
+    console.log('👤 HomeComponent: User groups:', this.userGroups);
+
     this.loadApplications();
   }
 
@@ -459,7 +468,10 @@ export class HomeComponent implements OnInit {
     statusIdsInUse.forEach(statusId => {
       const statusInfo = this.statusService.getStatus(statusId);
       if (statusInfo) {
-        const count = this.applications.filter(app => app.status === statusId).length;
+        // Count only applications assigned to user's group
+        const count = this.applications.filter(app =>
+          app.status === statusId && this.isAssignedToUserGroup(app)
+        ).length;
 
         const stat = {
           id: statusId,
@@ -471,11 +483,10 @@ export class HomeComponent implements OnInit {
           backgroundColor: statusInfo.backgroundColor
         };
 
-        this.applicationStats.push(stat);
-
-        // Add to tabs if it has applications
+        // Show BOTH stats and tabs if there are assigned applications
         if (count > 0) {
-          this.statusTabs.push(stat);
+          this.applicationStats.push(stat);  // KPI card
+          this.statusTabs.push(stat);         // Tab
         }
       }
     });
@@ -637,7 +648,28 @@ export class HomeComponent implements OnInit {
   }
 
   getApplicationsByStatusId(statusId: number): Application[] {
-    return this.applications.filter(app => app.status === statusId);
+    return this.applications.filter(app => {
+      // Only show in status tab if assigned to user's group
+      if (app.status === statusId) {
+        return this.isAssignedToUserGroup(app);
+      }
+      return false;
+    });
+  }
+
+  private isAssignedToUserGroup(app: Application): boolean {
+    // If user has no groups defined, show all applications
+    if (!this.userGroups || this.userGroups.length === 0) {
+      return true;
+    }
+
+    // If app has no assigned group, it's available to everyone
+    if (!app.assigned_group) {
+      return true;
+    }
+
+    // Otherwise, check if the app's group matches user's groups
+    return this.userGroups.includes(app.assigned_group);
   }
 
   filterByStatus(statusName: string): void {

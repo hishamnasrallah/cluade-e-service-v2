@@ -219,21 +219,19 @@ export class AuthService {
    */
   getUserInfo(): any {
     const token = this.getAccessToken();
-    if (!token) {
-      return null;
-    }
+    if (!token) return null;
 
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload = token.split('.')[1];
+      const decoded = JSON.parse(atob(payload));
       return {
-        userId: payload.user_id,
-        username: payload.username,
-        email: payload.email,
-        exp: payload.exp,
-        iat: payload.iat
+        username: decoded.username || decoded.sub,
+        userId: decoded.user_id,
+        userGroups: decoded.groups || [], // Array of group IDs the user belongs to
+        exp: decoded.exp
       };
     } catch (error) {
-      console.error('❌ AuthService: Error parsing token for user info:', error);
+      console.error('Error decoding token:', error);
       return null;
     }
   }
