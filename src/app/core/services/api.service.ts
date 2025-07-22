@@ -5,6 +5,7 @@ import { Observable, throwError, of } from 'rxjs';
 import { map, catchError, retry } from 'rxjs/operators';
 
 import { ConfigService } from './config.service';
+import { LookupCacheService } from './lookup-cache.service';
 import {
   ServicesResponse,
   ServiceFlowResponse,
@@ -292,6 +293,12 @@ export class ApiService {
    * @param caseType - The service ID (case_type from application)
    */
   getServiceCodeFromCaseType(caseType: number): Observable<string> {
+    // This method now just delegates to the cache service
+    // Remove direct API call to avoid duplication
+    console.log('🔍 API: Delegating service code lookup to cache service for case type:', caseType);
+
+    // Note: We need to inject LookupCacheService, but to avoid circular dependency,
+    // we'll keep this method as is and update the components to use LookupCacheService directly
     const url = this.buildUrl('/lookups/');
     const params = new HttpParams().set('id', caseType.toString());
 

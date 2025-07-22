@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
-import { map, tap, catchError } from 'rxjs/operators';
+import {map, tap, catchError, shareReplay} from 'rxjs/operators';
 import { ApiService } from './api.service';
 import { LookupOption, LookupResponse } from '../models/interfaces';
 

@@ -16,6 +16,7 @@ import { MatDialogModule } from '@angular/material/dialog'; // Add this import f
 
 import { NotesComponent } from '../../notes/notes.component';
 import { ApiService } from '../../../core/services/api.service';
+import { LookupCacheService } from '../../../core/services/lookup-cache.service';
 import {
   Application,
   ServiceFlowResponse,
@@ -705,6 +706,7 @@ export class ApplicationDetailComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private apiService: ApiService,
+    private lookupCacheService: LookupCacheService,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
     public statusService: StatusService
@@ -742,9 +744,9 @@ export class ApplicationDetailComponent implements OnInit {
         // Fetch all system lookups in parallel
         const requests: Observable<any>[] = [];
 
-        // 1. Get service code from case_type
+        // 1. Get service code from case_type (using cache)
         requests.push(
-          this.apiService.getServiceCodeFromCaseType(application.case_type).pipe(
+          this.lookupCacheService.getServiceCodeFromCaseType(application.case_type).pipe(
             map((code: string) => {
               this.serviceCode = code;
               return code;
@@ -752,11 +754,10 @@ export class ApplicationDetailComponent implements OnInit {
           )
         );
 
-        // 2. Get service name
+        // 2. Get service name (using cache)
         requests.push(
-          this.apiService.getServices().pipe(
-            map((response: ServicesResponse) => {
-              const service = response.results.find(s => s.id === application.case_type);
+          this.lookupCacheService.getServiceById(application.case_type).pipe(
+            map((service) => {
               if (service) {
                 this.serviceName = service.name;
               }
@@ -773,24 +774,24 @@ export class ApplicationDetailComponent implements OnInit {
           )
         );
 
-        // 4. Get applicant types
+        // 4. Get applicant types (using cache)
         if (application.applicant_type) {
           requests.push(
-            this.apiService.getLookupOptionsByName('Applicant Type').pipe(
-              map((response: LookupResponse) => {
-                this.systemLookups.applicantTypes = response.results || [];
+            this.lookupCacheService.getLookupOptionsByName('Applicant Type').pipe(
+              map((options) => {
+                this.systemLookups.applicantTypes = options;
               }),
               catchError(() => of(null))
             )
           );
         }
 
-        // 5. Get sub-statuses if needed
+        // 5. Get sub-statuses if needed (using cache)
         if (application.sub_status) {
           requests.push(
-            this.apiService.getLookupOptionsByName('Sub Status').pipe(
-              map((response: LookupResponse) => {
-                this.systemLookups.subStatuses = response.results || [];
+            this.lookupCacheService.getLookupOptionsByName('Sub Status').pipe(
+              map((options) => {
+                this.systemLookups.subStatuses = options;
               }),
               catchError(() => of(null))
             )
@@ -817,10 +818,10 @@ export class ApplicationDetailComponent implements OnInit {
         if (lookupIds.length > 0) {
           console.log('🔍 ApplicationDetail: Fetching lookup options for IDs:', lookupIds);
           const lookupRequests = lookupIds.map(id =>
-            this.apiService.getLookupOptions(id).pipe(
-              map((response: LookupResponse) => ({
+            this.lookupCacheService.getLookupOptions(id).pipe(
+              map((options) => ({
                 lookupId: id,
-                options: response.results || []
+                options: options
               })),
               catchError(() => of({ lookupId: id, options: [] }))
             )
@@ -1091,7 +1092,7 @@ export class ApplicationDetailComponent implements OnInit {
             // Multiple choice field
             const displayNames = value.map(id => {
               const numId = Number(id);
-              const option = lookupOptions.find(opt => opt.id === numId);
+              const option = lookupOptions.find((opt: LookupOption) => opt.id === numId);
               console.log(`🔍 ApplicationDetail: Looking for option with ID ${numId}, found: ${option?.name}`);
               return option ? option.name : `Unknown (${id})`;
             });
@@ -1099,7 +1100,7 @@ export class ApplicationDetailComponent implements OnInit {
           } else {
             // Single choice field
             const numValue = Number(value);
-            const option = lookupOptions.find(opt => opt.id === numValue);
+            const option = lookupOptions.find((opt: LookupOption) => opt.id === numValue);
             console.log(`🔍 ApplicationDetail: Looking for option with ID ${numValue}, found: ${option?.name}`);
             return option ? option.name : this.formatFieldValue(value);
           }
@@ -1111,13 +1112,13 @@ export class ApplicationDetailComponent implements OnInit {
         if (Array.isArray(value)) {
           const displayNames = value.map(id => {
             const numId = Number(id);
-            const option = field.allowed_lookups.find(opt => opt.id === numId);
+            const option = field.allowed_lookups.find((opt: LookupOption) => opt.id === numId);
             return option ? option.name : `Unknown (${id})`;
           });
           return displayNames.join(', ');
         } else {
           const numValue = Number(value);
-          const option = field.allowed_lookups.find(opt => opt.id === numValue);
+          const option = field.allowed_lookups.find((opt: LookupOption) => opt.id === numValue);
           return option ? option.name : this.formatFieldValue(value);
         }
       }
@@ -1129,7 +1130,7 @@ export class ApplicationDetailComponent implements OnInit {
 
       // Search through all cached lookups
       for (const [lookupId, options] of this.lookupCache.entries()) {
-        const option = options.find(opt => opt.id === numValue);
+        const option = options.find((opt: LookupOption) => opt.id === numValue);
         if (option) {
           console.log(`🔍 ApplicationDetail: Found value ${numValue} in lookup ${lookupId}: ${option.name}`);
           return option.name;

@@ -1,17 +1,21 @@
 // src/app/features/services/services.component.ts
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { ApiService } from '../../core/services/api.service';
 import { Service, ServicesResponse } from '../../core/models/interfaces';
+import { ApiService } from '../../core/services/api.service';
+import { LookupCacheService } from '../../core/services/lookup-cache.service';
 import { ServicesListComponent } from './services-list/services-list.component';
 
 @Component({
@@ -24,6 +28,8 @@ import { ServicesListComponent } from './services-list/services-list.component';
     MatIconModule,
     MatProgressSpinnerModule,
     MatToolbarModule,
+    MatTooltipModule,
+    MatSnackBarModule,
     ServicesListComponent
   ],
   template: `
@@ -129,13 +135,15 @@ import { ServicesListComponent } from './services-list/services-list.component';
     }
   `]
 })
-export class ServicesComponent implements OnInit {
+export class ServicesComponent implements OnInit, OnDestroy {
   services: Service[] = [];
   isLoading = false;
   error: string | null = null;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private apiService: ApiService,
+    private lookupCache: LookupCacheService,
     private router: Router,
     private snackBar: MatSnackBar
   ) {}
@@ -148,24 +156,21 @@ export class ServicesComponent implements OnInit {
     this.isLoading = true;
     this.error = null;
 
-    this.apiService.getServices().subscribe({
-      next: (response: ServicesResponse) => {
-        this.services = response.results || [];
-        this.isLoading = false;
-
-        console.log('✅ Services loaded successfully:', this.services.length, 'services');
-      },
-      error: (error: any) => {
-        console.error('❌ Error loading services:', error);
-        this.error = error.message || 'Failed to load services';
-        this.isLoading = false;
-
-        this.snackBar.open('Failed to load services. Please try again.', 'Close', {
-          duration: 5000,
-          panelClass: ['error-snackbar']
-        });
-      }
-    });
+    // Inject LookupCacheService in constructor first
+    this.lookupCache.getServices()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (services) => {
+          console.log('✅ Services loaded:', services);
+          this.services = services;
+          this.isLoading = false;
+        },
+        error: (error: any) => {
+          console.error('❌ Error loading services:', error);
+          this.error = error.message || 'Failed to load services';
+          this.isLoading = false;
+        }
+      });
   }
 
   refreshServices(): void {
@@ -198,5 +203,9 @@ export class ServicesComponent implements OnInit {
       duration: 3000,
       panelClass: ['info-snackbar']
     });
+  }
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

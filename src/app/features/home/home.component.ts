@@ -16,6 +16,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 
 import { ApiService } from '../../core/services/api.service';
+import { LookupCacheService } from '../../core/services/lookup-cache.service';
 import {
   Application,
   ApplicationsResponse,
@@ -353,6 +354,7 @@ export class HomeComponent implements OnInit {
   constructor(
     private router: Router,
     private apiService: ApiService,
+    private lookupCache: LookupCacheService,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
     private statusService: StatusService
@@ -418,13 +420,13 @@ export class HomeComponent implements OnInit {
       return of([]);
     }
 
-    // Get services to map case_type to service names
-    return this.apiService.getServices().pipe(
-      map((servicesResponse: ServicesResponse) => {
+    // Get services to map case_type to service names (using cache)
+    return this.lookupCache.getServices().pipe(
+      map((services) => {
         const servicesMap = new Map<number, string>();
 
         // Create a map of service ID to service name
-        servicesResponse.results.forEach(service => {
+        services.forEach(service => {
           servicesMap.set(service.id, service.name);
         });
 
@@ -521,8 +523,8 @@ export class HomeComponent implements OnInit {
   continueApplication(application: Application): void {
     console.log('🔄 HomeComponent: Continuing application:', application.id, 'Case type (service ID):', application.case_type);
 
-    // Get service code from case type (service ID) by looking up the service
-    this.apiService.getServiceCodeFromCaseType(application.case_type).subscribe({
+    // Get service code from case type (service ID) by looking up the service (using cache)
+    this.lookupCache.getServiceCodeFromCaseType(application.case_type).subscribe({
       next: (serviceCode: string) => {
         console.log('📋 HomeComponent: Found service code for case type', application.case_type, ':', serviceCode);
 
