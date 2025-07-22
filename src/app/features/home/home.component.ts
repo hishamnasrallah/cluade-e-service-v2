@@ -20,9 +20,9 @@ import {
   Application,
   ApplicationsResponse,
   ApplicationStatus,
-  getStatusNumbers,
   ServicesResponse
 } from '../../core/models/interfaces';
+import { StatusService } from '../../core/services/status.service';
 import { ApplicationsListComponent } from '../applications/applications-list/applications-list.component';
 import { Observable, of } from 'rxjs';
 import { switchMap, map, catchError } from 'rxjs/operators';
@@ -71,12 +71,15 @@ import { switchMap, map, catchError } from 'rxjs/operators';
           </div>
         </div>
 
-        <!-- Statistics Cards -->
-        <div class="stats-container">
+        <!-- Dynamic Statistics Cards - Only show statuses with applications -->
+        <div class="stats-container" *ngIf="applicationStats.length > 0">
           <div class="stat-card"
                *ngFor="let stat of applicationStats"
-               [class]="'stat-' + stat.colorClass">
-            <div class="stat-icon">
+               [style.border-left-color]="stat.color"
+               (click)="filterByStatus(stat.name)">
+            <div class="stat-icon"
+                 [style.background]="stat.backgroundColor"
+                 [style.color]="stat.color">
               <mat-icon>{{ stat.icon }}</mat-icon>
             </div>
             <div class="stat-info">
@@ -87,14 +90,14 @@ import { switchMap, map, catchError } from 'rxjs/operators';
         </div>
       </div>
 
-      <!-- Applications Tabs -->
+      <!-- Applications Tabs - Dynamic based on actual statuses -->
       <div class="applications-tabs">
         <mat-tab-group
           [selectedIndex]="selectedTabIndex"
           (selectedTabChange)="onTabChange($event)"
           class="applications-tab-group">
 
-          <!-- All Applications -->
+          <!-- All Applications Tab -->
           <mat-tab [label]="'All (' + applications.length + ')'">
             <app-applications-list
               [applications]="applications"
@@ -110,60 +113,13 @@ import { switchMap, map, catchError } from 'rxjs/operators';
             </app-applications-list>
           </mat-tab>
 
-          <!-- Draft Applications -->
-          <mat-tab [label]="'Draft (' + getApplicationsByStatus('draft').length + ')'">
+          <!-- Dynamic Status Tabs - Only for statuses that have applications -->
+          <mat-tab *ngFor="let statusTab of statusTabs"
+                   [label]="statusTab.name + ' (' + statusTab.count + ')'">
             <app-applications-list
-              [applications]="getApplicationsByStatus('draft')"
+              [applications]="getApplicationsByStatusId(statusTab.id)"
               [loading]="isLoading"
-              [status]="'draft'"
-              (onView)="viewApplication($event)"
-              (onEdit)="editApplication($event)"
-              (onDelete)="deleteApplication($event)"
-              (onContinue)="continueApplication($event)"
-              (onResubmit)="resubmitApplication($event)"
-              (onTrack)="trackApplication($event)"
-              (onDownload)="downloadApplication($event)">
-            </app-applications-list>
-          </mat-tab>
-
-          <!-- Returned Applications -->
-          <mat-tab [label]="'Returned (' + getApplicationsByStatus('returned').length + ')'">
-            <app-applications-list
-              [applications]="getApplicationsByStatus('returned')"
-              [loading]="isLoading"
-              [status]="'returned'"
-              (onView)="viewApplication($event)"
-              (onEdit)="editApplication($event)"
-              (onDelete)="deleteApplication($event)"
-              (onContinue)="continueApplication($event)"
-              (onResubmit)="resubmitApplication($event)"
-              (onTrack)="trackApplication($event)"
-              (onDownload)="downloadApplication($event)">
-            </app-applications-list>
-          </mat-tab>
-
-          <!-- Submitted Applications -->
-          <mat-tab [label]="'Submitted (' + getApplicationsByStatus('submitted').length + ')'">
-            <app-applications-list
-              [applications]="getApplicationsByStatus('submitted')"
-              [loading]="isLoading"
-              [status]="'submitted'"
-              (onView)="viewApplication($event)"
-              (onEdit)="editApplication($event)"
-              (onDelete)="deleteApplication($event)"
-              (onContinue)="continueApplication($event)"
-              (onResubmit)="resubmitApplication($event)"
-              (onTrack)="trackApplication($event)"
-              (onDownload)="downloadApplication($event)">
-            </app-applications-list>
-          </mat-tab>
-
-          <!-- Completed Applications -->
-          <mat-tab [label]="'Completed (' + getApplicationsByStatus('completed').length + ')'">
-            <app-applications-list
-              [applications]="getApplicationsByStatus('completed')"
-              [loading]="isLoading"
-              [status]="'completed'"
+              [status]="statusTab.name"
               (onView)="viewApplication($event)"
               (onEdit)="editApplication($event)"
               (onDelete)="deleteApplication($event)"
@@ -249,6 +205,7 @@ import { switchMap, map, catchError } from 'rxjs/operators';
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       transition: all 0.3s ease;
       border-left: 4px solid transparent;
+      cursor: pointer;
     }
 
     .stat-card:hover {
@@ -256,20 +213,8 @@ import { switchMap, map, catchError } from 'rxjs/operators';
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     }
 
-    .stat-card.stat-draft {
-      border-left-color: #f39c12;
-    }
-
-    .stat-card.stat-returned {
-      border-left-color: #e74c3c;
-    }
-
-    .stat-card.stat-submitted {
-      border-left-color: #2EC4B6;
-    }
-
-    .stat-card.stat-completed {
-      border-left-color: #27ae60;
+    .stat-card {
+      position: relative;
     }
 
     .stat-icon {
@@ -279,26 +224,6 @@ import { switchMap, map, catchError } from 'rxjs/operators';
       display: flex;
       align-items: center;
       justify-content: center;
-    }
-
-    .stat-draft .stat-icon {
-      background: rgba(243, 156, 18, 0.1);
-      color: #f39c12;
-    }
-
-    .stat-returned .stat-icon {
-      background: rgba(231, 76, 60, 0.1);
-      color: #e74c3c;
-    }
-
-    .stat-submitted .stat-icon {
-      background: rgba(52, 152, 219, 0.1);
-      color: #2EC4B6;
-    }
-
-    .stat-completed .stat-icon {
-      background: rgba(39, 174, 96, 0.1);
-      color: #27ae60;
     }
 
     .stat-icon mat-icon {
@@ -419,41 +344,48 @@ export class HomeComponent implements OnInit {
   error: string | null = null;  // Add this line
   selectedTabIndex = 0;
 
-  applicationStats = [
-    { icon: 'edit', label: 'Draft', colorClass: 'draft', count: 0 },
-    { icon: 'undo', label: 'Returned', colorClass: 'returned', count: 0 },
-    { icon: 'send', label: 'Submitted', colorClass: 'submitted', count: 0 },
-    { icon: 'check_circle', label: 'Completed', colorClass: 'completed', count: 0 }
-  ];
+  applicationStats: any[] = [];
+  statusTabs: any[] = [];
 
   constructor(
     private router: Router,
     private apiService: ApiService,
     private snackBar: MatSnackBar,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private statusService: StatusService
   ) {}
 
   ngOnInit(): void {
     this.loadApplications();
   }
 
-  loadApplications(status?: ApplicationStatus): void {
+  loadApplications(statusFilter?: string): void {
     this.isLoading = true;
     this.error = null;
 
-    const statusNumbers = status && status !== 'all' ? getStatusNumbers(status) : undefined;
+    console.log('📋 Home: Loading applications with status filter:', statusFilter);
 
-    console.log('📋 Home: Loading applications with status:', status, 'Numbers:', statusNumbers);
-
-    this.apiService.getApplications().pipe(
+    // First ensure statuses are loaded
+    this.statusService.loadStatuses().pipe(
+      switchMap(() => this.apiService.getApplications()),
       switchMap((response: ApplicationsResponse) => {
         console.log('✅ Home: Applications loaded:', response);
 
         let filteredApps = response.results;
-        if (status && status !== 'all' && statusNumbers) {
-          filteredApps = response.results.filter(app =>
-            statusNumbers.includes(app.status)
+
+        // Filter by status if specified
+        if (statusFilter && statusFilter !== 'all') {
+          // Find status ID by name
+          const allStatuses = this.statusService.getAllStatuses();
+          const matchingStatus = allStatuses.find(s =>
+            s.name.toLowerCase() === statusFilter.toLowerCase()
           );
+
+          if (matchingStatus) {
+            filteredApps = response.results.filter(app =>
+              app.status === matchingStatus.id
+            );
+          }
         }
 
         // Enrich applications with service names
@@ -463,6 +395,7 @@ export class HomeComponent implements OnInit {
       next: (enrichedApplications: Application[]) => {
         console.log('✅ Home: Applications enriched with service names');
         this.applications = enrichedApplications;
+        this.updateStats();
         this.isLoading = false;
       },
       error: (error: any) => {
@@ -504,20 +437,52 @@ export class HomeComponent implements OnInit {
       })
     );
   }
-  getApplicationsByStatus(status: ApplicationStatus): Application[] {
-    if (status === 'all') {
-      return this.applications;
-    }
-
-    const statusCodes = getStatusNumbers(status);
-    return this.applications.filter(app => statusCodes.includes(app.status));
-  }
 
   updateStats(): void {
-    this.applicationStats.forEach(stat => {
-      const statusKey = stat.label.toLowerCase() as ApplicationStatus;
-      stat.count = this.getApplicationsByStatus(statusKey).length;
+    // Get unique status IDs from applications
+    const statusIdsInUse = new Set<number>();
+    this.applications.forEach(app => {
+      if (app.status) {
+        statusIdsInUse.add(app.status);
+      }
     });
+
+    // Build stats only for statuses that have applications
+    this.applicationStats = [];
+    this.statusTabs = [];
+
+    statusIdsInUse.forEach(statusId => {
+      const statusInfo = this.statusService.getStatus(statusId);
+      if (statusInfo) {
+        const count = this.applications.filter(app => app.status === statusId).length;
+
+        const stat = {
+          id: statusId,
+          name: statusInfo.name,
+          icon: statusInfo.icon || 'info',
+          label: statusInfo.name,
+          count: count,
+          color: statusInfo.color,
+          backgroundColor: statusInfo.backgroundColor
+        };
+
+        this.applicationStats.push(stat);
+
+        // Add to tabs if it has applications
+        if (count > 0) {
+          this.statusTabs.push(stat);
+        }
+      }
+    });
+
+    // Sort by count descending
+    this.applicationStats.sort((a, b) => b.count - a.count);
+    this.statusTabs.sort((a, b) => b.count - a.count);
+
+    // Limit stats display to top 6 if there are many
+    if (this.applicationStats.length > 6) {
+      this.applicationStats = this.applicationStats.slice(0, 6);
+    }
   }
 
   onTabChange(event: any): void {
@@ -666,5 +631,19 @@ export class HomeComponent implements OnInit {
     });
   }
 
+  getApplicationsByStatusId(statusId: number): Application[] {
+    return this.applications.filter(app => app.status === statusId);
+  }
 
+  filterByStatus(statusName: string): void {
+    // Find the tab index for this status
+    const tabIndex = this.statusTabs.findIndex(tab =>
+      tab.name.toLowerCase() === statusName.toLowerCase()
+    );
+
+    if (tabIndex >= 0) {
+      // +1 because first tab is "All"
+      this.selectedTabIndex = tabIndex + 1;
+    }
+  }
 }

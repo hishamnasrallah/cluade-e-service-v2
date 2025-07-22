@@ -11,7 +11,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 
-import { Application, ApplicationStatus, getStatusString, getStatusLabel, getStatusIcon } from '../../../core/models/interfaces';
+import { Application, ApplicationStatus } from '../../../core/models/interfaces';
+import { StatusService } from '../../../core/services/status.service';
 
 @Component({
   selector: 'app-applications-list',
@@ -70,7 +71,9 @@ import { Application, ApplicationStatus, getStatusString, getStatusLabel, getSta
                 </div>
 
                 <div class="header-actions">
-                  <mat-chip class="status-chip" [class]="'status-' + app.status">
+                  <mat-chip class="status-chip"
+                            [style.background]="getStatusBackgroundColor(app.status)"
+                            [style.color]="getStatusColor(app.status)">
                     <mat-icon class="status-icon">{{ getStatusIcon(app.status) }}</mat-icon>
                     {{ getStatusLabel(app.status) }}
                   </mat-chip>
@@ -512,6 +515,8 @@ export class ApplicationsListComponent {
   @Input() loading = false;
   @Input() status!: ApplicationStatus;
 
+  constructor(private statusService: StatusService) {}
+
   @Output() onView = new EventEmitter<Application>();
   @Output() onEdit = new EventEmitter<Application>();
   @Output() onDelete = new EventEmitter<Application>();
@@ -560,11 +565,11 @@ export class ApplicationsListComponent {
   }
 
   getStatusIcon(status: number): string {
-    return getStatusIcon(status);
+    return this.statusService.getStatusIcon(status);
   }
 
   getStatusLabel(status: number): string {
-    return getStatusLabel(status);
+    return this.statusService.getStatusLabel(status);
   }
 
   formatDate(dateString: string): string {
@@ -664,5 +669,13 @@ export class ApplicationsListComponent {
 
   canDelete(status: number): boolean {
     return status === 20; // draft only
+  }
+
+  getStatusColor(status: number): string {
+    return this.statusService.getStatusColor(status);
+  }
+
+  getStatusBackgroundColor(status: number): string {
+    return this.statusService.getStatusBackgroundColor(status);
   }
 }

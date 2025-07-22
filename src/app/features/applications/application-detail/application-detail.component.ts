@@ -15,15 +15,16 @@ import { NotesComponent } from '../../notes/notes.component';
 import { ApiService } from '../../../core/services/api.service';
 import {
   Application,
-  getStatusLabel,
-  getStatusIcon,
   ServiceFlowResponse,
   ServiceFlowField,
   LookupOption,
-  LookupResponse, ServicesResponse
+  LookupResponse,
+  ServicesResponse
 } from '../../../core/models/interfaces';
-import { Subject, forkJoin, of } from 'rxjs';
+import { StatusService } from '../../../core/services/status.service';
+import {Subject, forkJoin, of, Observable} from 'rxjs';
 import { takeUntil, switchMap, map, catchError } from 'rxjs/operators';
+import {MatTooltip} from '@angular/material/tooltip';
 
 interface FieldMetadata {
   field: ServiceFlowField;
@@ -41,7 +42,8 @@ interface FieldMetadata {
     MatProgressSpinnerModule,
     MatChipsModule,
     MatDividerModule,
-    NotesComponent
+    NotesComponent,
+    MatTooltip
   ],
   template: `
     <div class="application-detail-container">
@@ -106,7 +108,9 @@ interface FieldMetadata {
             <div class="info-grid">
               <div class="info-item">
                 <span class="info-label">Status:</span>
-                <mat-chip [class]="'status-' + application.status" class="status-chip">
+                <mat-chip class="status-chip"
+                          [style.background]="statusService.getStatusBackgroundColor(application.status)"
+                          [style.color]="statusService.getStatusColor(application.status)">
                   <mat-icon class="chip-icon">{{ getStatusIcon(application.status) }}</mat-icon>
                   {{ getStatusLabel(application.status) }}
                 </mat-chip>
@@ -123,10 +127,10 @@ interface FieldMetadata {
                 <span class="info-label">Service:</span>
                 <span class="info-value">{{ serviceName || 'Loading...' }}</span>
               </div>
-<!--              <div class="info-item">-->
-<!--                <span class="info-label">Applicant Type:</span>-->
-<!--                <span class="info-value">{{ applicantTypeName || 'Loading...' }}</span>-->
-<!--              </div>-->
+              <!--              <div class="info-item">-->
+              <!--                <span class="info-label">Applicant Type:</span>-->
+              <!--                <span class="info-value">{{ applicantTypeName || 'Loading...' }}</span>-->
+              <!--              </div>-->
               <div class="info-item" *ngIf="application.sub_status">
                 <span class="info-label">Sub Status:</span>
                 <span class="info-value">{{ subStatusName || 'Loading...' }}</span>
@@ -671,7 +675,9 @@ export class ApplicationDetailComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private apiService: ApiService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog,
+    public statusService: StatusService
   ) {}
 
   ngOnInit(): void {
@@ -727,19 +733,12 @@ export class ApplicationDetailComponent implements OnInit {
           );
         }
 
-        // 3. Get sub-status name if exists
-        if (application.sub_status) {
-          requests.push(
-            this.apiService.getLookupOptions(application.sub_status).pipe(
-              map((response: LookupResponse) => {
-                if (response.results && response.results.length > 0) {
-                  this.subStatusName = response.results[0].name;
-                }
-              }),
-              catchError(() => of(null))
-            )
-          );
-        }
+        // 3. Load status information
+        requests.push(
+          this.statusService.loadStatuses().pipe(
+            catchError(() => of(null))
+          )
+        );
 
         return forkJoin(requests).pipe(
           map(() => requests[0]) // Return the service code for next step
@@ -759,7 +758,14 @@ export class ApplicationDetailComponent implements OnInit {
         // Get unique lookup IDs that need to be fetched
         const lookupIds = this.getUniqueLookupIds();
 
+        // Add status lookup to ensure we have status options
+        const statusLookupRequest = this.statusService.loadStatuses().pipe(
+          catchError(() => of([]))
+        );
+
         // Fetch all lookup options in parallel
+        const allRequests: Observable<any>[] = [statusLookupRequest];
+
         if (lookupIds.length > 0) {
           console.log('🔍 ApplicationDetail: Fetching lookup options for IDs:', lookupIds);
           const lookupRequests = lookupIds.map(id =>
@@ -771,20 +777,27 @@ export class ApplicationDetailComponent implements OnInit {
               catchError(() => of({ lookupId: id, options: [] }))
             )
           );
-
-          return forkJoin(lookupRequests);
+          allRequests.push(...lookupRequests);
         }
 
-        return of([]);
+        return forkJoin(allRequests);
       })
     ).subscribe({
-      next: (lookupResults: any[]) => {
+      next: (results: any[]) => {
+        // Skip the first result (status lookup)
+        const lookupResults = results.slice(1);
+
         // Cache lookup options
         lookupResults.forEach(result => {
-          this.lookupCache.set(result.lookupId, result.options);
+          if (result.lookupId && result.options) {
+            this.lookupCache.set(result.lookupId, result.options);
+            console.log('📋 ApplicationDetail: Cached lookup', result.lookupId, 'with', result.options.length, 'options');
+          }
         });
 
         console.log('✅ ApplicationDetail: All data loaded successfully');
+        console.log('📊 ApplicationDetail: Field metadata:', this.fieldMetadata);
+        console.log('📊 ApplicationDetail: Lookup cache:', this.lookupCache);
         this.isLoading = false;
       },
       error: (error: any) => {
@@ -804,11 +817,11 @@ export class ApplicationDetailComponent implements OnInit {
   }
 
   getStatusIcon(status: number): string {
-    return getStatusIcon(status);
+    return this.statusService.getStatusIcon(status);
   }
 
   getStatusLabel(status: number): string {
-    return getStatusLabel(status);
+    return this.statusService.getStatusLabel(status);
   }
 
   formatDate(dateString: string): string {
@@ -833,24 +846,36 @@ export class ApplicationDetailComponent implements OnInit {
     const caseData = this.application.case_data;
 
     Object.entries(caseData).forEach(([key, value]) => {
-      // Skip uploaded_files as they're handled separately
+      // Skip system fields and uploaded_files as they're handled separately
       if (key === 'uploaded_files' ||
         key === 'case_type' ||
         key === 'applicant_type' ||
         key === 'sub_status' ||
-        key === 'status') return;
+        key === 'status' ||
+        key === 'id' ||
+        key === 'serial_number' ||
+        key === 'created_at' ||
+        key === 'updated_at' ||
+        key === 'created_by' ||
+        key === 'updated_by') return;
 
       // Get field metadata to get proper display name
       const metadata = this.fieldMetadata.get(key);
       const label = metadata?.field.display_name || this.formatFieldName(key);
 
+      // Check if this is a lookup field
+      const isLookupField = metadata?.field.field_type === 'choice' ||
+                           metadata?.field.field_type === 'lookup' ||
+                           (metadata?.field.lookup && metadata.field.lookup > 0);
+
       formattedData.push({
         key,
         label,
         value,
-        displayValue: this.getFieldDisplayValue(key, value), // Use new method
+        displayValue: this.getFieldDisplayValue(key, value, metadata), // Pass metadata
         isFile: false,
-        fieldType: metadata?.field.field_type || 'text'
+        fieldType: metadata?.field.field_type || 'text',
+        isLookup: isLookupField
       });
     });
 
@@ -1016,10 +1041,13 @@ export class ApplicationDetailComponent implements OnInit {
   }
 
   private buildFieldMetadata(serviceFlowResponse: ServiceFlowResponse): void {
+    console.log('🏗️ ApplicationDetail: Building field metadata from service flow');
+
     serviceFlowResponse.service_flow.forEach(step => {
       step.categories.forEach(category => {
         category.fields.forEach(field => {
           this.fieldMetadata.set(field.name, { field });
+          console.log(`📝 ApplicationDetail: Added field metadata for "${field.name}" - Type: ${field.field_type}, Lookup: ${field.lookup}`);
         });
       });
     });
@@ -1037,28 +1065,88 @@ export class ApplicationDetailComponent implements OnInit {
     return Array.from(lookupIds);
   }
 
-  private getFieldDisplayValue(fieldName: string, value: any): string {
-    const metadata = this.fieldMetadata.get(fieldName);
-
-    if (!metadata || !metadata.field.lookup) {
-      // Not a lookup field, return value as is
-      return this.formatFieldValue(value);
+  private getFieldDisplayValue(fieldName: string, value: any, metadata?: FieldMetadata): string {
+    // Handle null/undefined values
+    if (value === null || value === undefined || value === '') {
+      return 'Not provided';
     }
 
-    // This is a lookup field, get the display name
-    const lookupOptions = this.lookupCache.get(metadata.field.lookup) || [];
-
-    if (Array.isArray(value)) {
-      // Multiple choice field
-      const displayNames = value.map(id => {
-        const option = lookupOptions.find(opt => opt.id === Number(id));
-        return option ? option.name : `Unknown (${id})`;
-      });
-      return displayNames.join(', ');
-    } else {
-      // Single choice field
-      const option = lookupOptions.find(opt => opt.id === Number(value));
-      return option ? option.name : this.formatFieldValue(value);
+    // First check if this is a known status field
+    if (fieldName === 'status' || fieldName === 'sub_status') {
+      const numValue = Number(value);
+      if (!isNaN(numValue)) {
+        return this.statusService.getStatusLabel(numValue);
+      }
     }
+
+    // If no metadata passed, try to get it
+    if (!metadata) {
+      metadata = this.fieldMetadata.get(fieldName);
+    }
+
+    // Check if this is a lookup/choice field based on metadata
+    if (metadata && metadata.field) {
+      const field = metadata.field;
+
+      // Check if it's a choice/lookup field with a lookup ID
+      if ((field.field_type === 'choice' || field.field_type === 'lookup') && field.lookup) {
+        console.log(`📋 ApplicationDetail: Field "${fieldName}" is a lookup field with lookup ID: ${field.lookup}`);
+
+        const lookupOptions = this.lookupCache.get(field.lookup);
+        console.log(`📋 ApplicationDetail: Found ${lookupOptions?.length || 0} options for lookup ${field.lookup}`);
+
+        if (lookupOptions && lookupOptions.length > 0) {
+          if (Array.isArray(value)) {
+            // Multiple choice field
+            const displayNames = value.map(id => {
+              const numId = Number(id);
+              const option = lookupOptions.find(opt => opt.id === numId);
+              console.log(`🔍 ApplicationDetail: Looking for option with ID ${numId}, found: ${option?.name}`);
+              return option ? option.name : `Unknown (${id})`;
+            });
+            return displayNames.join(', ');
+          } else {
+            // Single choice field
+            const numValue = Number(value);
+            const option = lookupOptions.find(opt => opt.id === numValue);
+            console.log(`🔍 ApplicationDetail: Looking for option with ID ${numValue}, found: ${option?.name}`);
+            return option ? option.name : this.formatFieldValue(value);
+          }
+        }
+      }
+
+      // Check if it has static allowed_lookups
+      if (field.allowed_lookups && field.allowed_lookups.length > 0) {
+        if (Array.isArray(value)) {
+          const displayNames = value.map(id => {
+            const numId = Number(id);
+            const option = field.allowed_lookups.find(opt => opt.id === numId);
+            return option ? option.name : `Unknown (${id})`;
+          });
+          return displayNames.join(', ');
+        } else {
+          const numValue = Number(value);
+          const option = field.allowed_lookups.find(opt => opt.id === numValue);
+          return option ? option.name : this.formatFieldValue(value);
+        }
+      }
+    }
+
+    // For any other numeric value, try to find in all cached lookups
+    if (typeof value === 'number' || (typeof value === 'string' && /^\d+$/.test(value))) {
+      const numValue = Number(value);
+
+      // Search through all cached lookups
+      for (const [lookupId, options] of this.lookupCache.entries()) {
+        const option = options.find(opt => opt.id === numValue);
+        if (option) {
+          console.log(`🔍 ApplicationDetail: Found value ${numValue} in lookup ${lookupId}: ${option.name}`);
+          return option.name;
+        }
+      }
+    }
+
+    // Default formatting
+    return this.formatFieldValue(value);
   }
 }
