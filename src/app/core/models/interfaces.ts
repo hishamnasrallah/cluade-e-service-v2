@@ -285,6 +285,15 @@ export interface ServiceFlowResponse {
   service_flow: ServiceFlowStep[];
 }
 
+// Applicant Action Model
+export interface ApplicantAction {
+  id: number;
+  action_name: string;
+  action_code: string;
+  to_status_name: string;
+  notes_mandatory: boolean;
+}
+
 // Application models - Fixed to use numeric status from API
 export interface Application {
   id: number;
@@ -303,6 +312,7 @@ export interface Application {
   serial_number: string;
   created_at: string;
   updated_at: string;
+  available_applicant_actions?: ApplicantAction[]; // Add this line
 
   // Additional computed properties
   title?: string;

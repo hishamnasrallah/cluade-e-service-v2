@@ -11,7 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 
-import { Application, ApplicationStatus } from '../../../core/models/interfaces';
+import { Application, ApplicationStatus, ApplicantAction } from '../../../core/models/interfaces'; // Import ApplicantAction
 import { StatusService } from '../../../core/services/status.service';
 
 @Component({
@@ -191,14 +191,43 @@ import { StatusService } from '../../../core/services/status.service';
                     {{ getPrimaryActionLabel(app.status) }}
                   </button>
                 }
+
+                <!-- Dynamic Applicant Actions in list -->
+                @for (action of app.available_applicant_actions; track action.id) {
+                  <button mat-raised-button
+                          color="accent"
+                          (click)="performApplicantAction(app, action, $event)"
+                          class="dynamic-list-action">
+                    <mat-icon>play_arrow</mat-icon> <!-- Customize icon as needed -->
+                    {{ action.action_name }}
+                  </button>
+                }
               </mat-card-actions>
             </mat-card>
           }
         </div>
       }
     </div>
+
   `,
   styles: [`
+    .dynamic-list-action {
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); /* Example color */
+      color: white;
+      font-weight: 600;
+      height: 36px;
+      border-radius: 18px;
+      margin-left: 8px; /* Adjust spacing as needed */
+    }
+    .dynamic-list-action mat-icon {
+      margin-right: 6px;
+      font-size: 18px;
+    }
+    /* Ensure the card actions layout handles multiple buttons gracefully */
+    .card-actions {
+      flex-wrap: wrap;
+      justify-content: flex-start; /* Align buttons to start */
+    }
     .applications-container {
       width: 100%;
       min-height: 300px;
@@ -524,14 +553,20 @@ export class ApplicationsListComponent {
   @Output() onResubmit = new EventEmitter<Application>();
   @Output() onTrack = new EventEmitter<Application>();
   @Output() onDownload = new EventEmitter<Application>();
+  @Output() onApplicantAction = new EventEmitter<{ application: Application, action: ApplicantAction }>(); // Add this line
 
   trackByFn(index: number, item: Application): any {
     return item.id;
   }
 
   onNewApplication(): void {
-    // Navigate to services page or emit event
-    console.log('Navigate to new application');
+    // Navigate to new application
+  }
+
+  // New method to emit applicant action
+  performApplicantAction(application: Application, action: ApplicantAction, event: Event): void {
+    event.stopPropagation(); // Prevent card click event
+    this.onApplicantAction.emit({ application, action });
   }
 
   getEmptyStateIcon(): string {

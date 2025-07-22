@@ -12,6 +12,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialogModule } from '@angular/material/dialog'; // Add this import for dialogs
 
 import { NotesComponent } from '../../notes/notes.component';
 import { ApiService } from '../../../core/services/api.service';
@@ -21,16 +22,19 @@ import {
   ServiceFlowField,
   LookupOption,
   LookupResponse,
-  ServicesResponse
+  ServicesResponse,
+  ApplicantAction // Import ApplicantAction
 } from '../../../core/models/interfaces';
 import { StatusService } from '../../../core/services/status.service';
 import { Subject, forkJoin, of, Observable } from 'rxjs';
 import { takeUntil, switchMap, map, catchError } from 'rxjs/operators';
+import { ActionNotesDialogComponent } from '../action-notes-dialog/action-notes-dialog.component'; // Import the new dialog component
 
 interface FieldMetadata {
   field: ServiceFlowField;
   lookupOptions?: LookupOption[];
 }
+
 
 @Component({
   selector: 'app-application-detail',
@@ -44,7 +48,9 @@ interface FieldMetadata {
     MatChipsModule,
     MatDividerModule,
     MatTooltipModule,
-    NotesComponent
+    NotesComponent,
+    MatDialogModule
+
   ],
   template: `
     <div class="application-detail-container">
@@ -235,6 +241,23 @@ interface FieldMetadata {
                         class="download-btn">
                   <mat-icon>download</mat-icon>
                   Download
+                </button>
+              </div>
+            </div>
+
+            <!-- Dynamic Applicant Actions -->
+            <div class="action-group" *ngIf="availableApplicantActions.length > 0">
+              <mat-divider></mat-divider>
+              <h4 class="action-group-title">Available Actions</h4>
+              <div class="action-buttons">
+                <button mat-raised-button
+                        *ngFor="let action of availableApplicantActions"
+                        (click)="performApplicantAction(action)"
+                        [disabled]="isProcessing"
+                        class="dynamic-action-btn">
+                  <mat-spinner diameter="20" *ngIf="isProcessing"></mat-spinner>
+                  <mat-icon *ngIf="!isProcessing">play_arrow</mat-icon> <!-- You can customize icons based on action.action_code -->
+                  {{ action.action_name }}
                 </button>
               </div>
             </div>
@@ -657,6 +680,7 @@ export class ApplicationDetailComponent implements OnInit {
   isProcessing = false;
   error: string | null = null;
   applicationId: number = 0;
+  availableApplicantActions: ApplicantAction[] = []; // Add this line
 
   // Properties for lookup resolution
   fieldMetadata: Map<string, FieldMetadata> = new Map();
@@ -684,6 +708,7 @@ export class ApplicationDetailComponent implements OnInit {
     public statusService: StatusService
   ) {}
 
+
   ngOnInit(): void {
     this.route.params.subscribe(params => {
       this.applicationId = parseInt(params['id']);
@@ -710,6 +735,7 @@ export class ApplicationDetailComponent implements OnInit {
       switchMap((application: Application) => {
         console.log('✅ ApplicationDetail: Application loaded:', application);
         this.application = application;
+        this.availableApplicantActions = application.available_applicant_actions || []; // Populate actions
 
         // Fetch all system lookups in parallel
         const requests: Observable<any>[] = [];
@@ -818,6 +844,26 @@ export class ApplicationDetailComponent implements OnInit {
         console.log('📊 ApplicationDetail: Field metadata:', this.fieldMetadata);
         console.log('📊 ApplicationDetail: Lookup cache:', this.lookupCache);
         this.isLoading = false;
+
+        // NEW: Check for actionId in query params and trigger action
+        const actionIdFromQueryParams = this.route.snapshot.queryParams['actionId'];
+        if (actionIdFromQueryParams && this.application && this.availableApplicantActions.length > 0) {
+          const targetAction = this.availableApplicantActions.find(
+            action => action.id === parseInt(actionIdFromQueryParams)
+          );
+          if (targetAction) {
+            console.log('⚡ ApplicationDetail: Auto-triggering action from query param:', targetAction.action_name);
+            this.performApplicantAction(targetAction);
+            // Remove the query param to prevent re-triggering on refresh
+            this.router.navigate([], {
+              queryParams: { actionId: null }, // Set actionId to null to remove it
+              queryParamsHandling: 'merge', // Merge with existing query params
+              replaceUrl: true // Replace current URL in history
+            });
+          } else {
+            console.warn('⚠️ ApplicationDetail: Action ID from query param not found in available actions.');
+          }
+        }
       },
       error: (error: any) => {
         console.error('❌ ApplicationDetail: Error loading application data:', error);
@@ -827,6 +873,64 @@ export class ApplicationDetailComponent implements OnInit {
     });
   }
 
+  // New method to handle applicant actions
+  performApplicantAction(action: ApplicantAction): void {
+    if (!this.application) return;
+
+    console.log('⚡ ApplicationDetail: Performing action:', action.action_name, 'for application:', this.application.id);
+    this.isProcessing = true;
+
+    if (action.notes_mandatory) {
+      this.openNotesDialog(action);
+    } else {
+      this.executeApplicantAction(action.id, '');
+    }
+  }
+
+  // New method to open notes dialog
+  openNotesDialog(action: ApplicantAction): void {
+    const dialogRef = this.dialog.open(ActionNotesDialogComponent, {
+      width: '400px',
+      data: { actionName: action.action_name }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result !== undefined) {
+        // result will be the notes string or null if dialog was cancelled
+        this.executeApplicantAction(action.id, result || '');
+      } else {
+        this.isProcessing = false; // Re-enable buttons if dialog cancelled
+      }
+    });
+  }
+
+  // New method to execute the API call
+  private executeApplicantAction(actionId: number, notes: string): void {
+    if (!this.application) {
+      this.isProcessing = false;
+      return;
+    }
+
+    this.apiService.performApplicantAction(this.application.id, actionId, notes).subscribe({
+      next: (response) => {
+        console.log('✅ ApplicationDetail: Action executed successfully:', response);
+        this.snackBar.open(`Action "${response.action_name}" performed successfully!`, 'Close', {
+          duration: 3000,
+          panelClass: ['success-snackbar']
+        });
+        this.isProcessing = false;
+        this.loadApplication(); // Refresh application data after action
+      },
+      error: (error) => {
+        console.error('❌ ApplicationDetail: Failed to perform action:', error);
+        this.snackBar.open(`Failed to perform action: ${error.message || 'Unknown error'}`, 'Close', {
+          duration: 5000,
+          panelClass: ['error-snackbar']
+        });
+        this.isProcessing = false;
+      }
+    });
+  }
   refreshApplication(): void {
     this.loadApplication();
   }

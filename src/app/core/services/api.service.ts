@@ -11,7 +11,8 @@ import {
   LookupResponse,
   ApplicationsResponse,
   CaseSubmission,
-  ApiResponse
+  ApiResponse,
+  ApplicantAction // Import ApplicantAction
 } from '../models/interfaces';
 
 @Injectable({
@@ -335,7 +336,30 @@ export class ApiService {
       catchError(this.handleError)
     );
   }
+  /**
+   * Perform an applicant action on a case
+   * @param caseId The ID of the case
+   * @param actionId The ID of the action to perform
+   * @param notes Optional notes for the action
+   */
+  performApplicantAction(caseId: number, actionId: number, notes?: string): Observable<any> {
+    const url = this.buildUrl(`/case/cases/${caseId}/applicant-action/`);
+    const body = {
+      action_id: actionId,
+      notes: notes || ''
+    };
 
+    console.log('🚀 API: Performing applicant action:', { caseId, actionId, notes });
+
+    return this.http.post(url, body, { headers: this.JSON_HEADERS })
+      .pipe(
+        map(response => {
+          console.log('✅ API: Applicant action performed successfully:', response);
+          return response;
+        }),
+        catchError(this.handleError)
+      );
+  }
   /**
    * Generic POST request
    */

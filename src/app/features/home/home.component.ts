@@ -20,7 +20,8 @@ import {
   Application,
   ApplicationsResponse,
   ApplicationStatus,
-  ServicesResponse
+  ServicesResponse,
+  ApplicantAction // Import ApplicantAction
 } from '../../core/models/interfaces';
 import { StatusService } from '../../core/services/status.service';
 import { ApplicationsListComponent } from '../applications/applications-list/applications-list.component';
@@ -109,7 +110,8 @@ import { switchMap, map, catchError } from 'rxjs/operators';
               (onContinue)="continueApplication($event)"
               (onResubmit)="resubmitApplication($event)"
               (onTrack)="trackApplication($event)"
-              (onDownload)="downloadApplication($event)">
+              (onDownload)="downloadApplication($event)"
+              (onApplicantAction)="handleApplicantActionFromList($event)"> <!-- Add this line -->
             </app-applications-list>
           </mat-tab>
 
@@ -126,7 +128,8 @@ import { switchMap, map, catchError } from 'rxjs/operators';
               (onContinue)="continueApplication($event)"
               (onResubmit)="resubmitApplication($event)"
               (onTrack)="trackApplication($event)"
-              (onDownload)="downloadApplication($event)">
+              (onDownload)="downloadApplication($event)"
+              (onApplicantAction)="handleApplicantActionFromList($event)"> <!-- Add this line -->
             </app-applications-list>
           </mat-tab>
         </mat-tab-group>
@@ -645,5 +648,13 @@ export class HomeComponent implements OnInit {
       // +1 because first tab is "All"
       this.selectedTabIndex = tabIndex + 1;
     }
+  }
+
+  handleApplicantActionFromList(event: { application: Application, action: ApplicantAction }): void {
+    console.log('⚡ HomeComponent: Applicant action from list:', event.action.action_name, 'for application:', event.application.id);
+    // Navigate to the application detail page and pass the actionId as a query parameter
+    this.router.navigate(['/application', event.application.id], {
+      queryParams: { actionId: event.action.id }
+    });
   }
 }
