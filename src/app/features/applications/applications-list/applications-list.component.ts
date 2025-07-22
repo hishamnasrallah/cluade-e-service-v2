@@ -199,7 +199,7 @@ import { StatusService } from '../../../core/services/status.service';
                           (click)="performApplicantAction(app, action, $event)"
                           class="dynamic-list-action">
                     <mat-icon>play_arrow</mat-icon> <!-- Customize icon as needed -->
-                    {{ action.action_name }}
+                    {{ action.name }}
                   </button>
                 }
               </mat-card-actions>

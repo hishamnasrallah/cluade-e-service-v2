@@ -651,10 +651,9 @@ export class HomeComponent implements OnInit {
   }
 
   handleApplicantActionFromList(event: { application: Application, action: ApplicantAction }): void {
-    console.log('⚡ HomeComponent: Applicant action from list:', event.action.action_name, 'for application:', event.application.id);
-    // Navigate to the application detail page and pass the actionId as a query parameter
-    this.router.navigate(['/application', event.application.id], {
-      queryParams: { actionId: event.action.id }
-    });
+    console.log('⚡ HomeComponent: Applicant action from list:', event.action.name, 'for application:', event.application.id);
+
+    // Navigate to the dedicated action execution page
+    this.router.navigate(['/cases', event.application.id, 'action', event.action.id]);
   }
 }

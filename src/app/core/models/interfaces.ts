@@ -285,13 +285,16 @@ export interface ServiceFlowResponse {
   service_flow: ServiceFlowStep[];
 }
 
-// Applicant Action Model
 export interface ApplicantAction {
   id: number;
-  action_name: string;
-  action_code: string;
-  to_status_name: string;
-  notes_mandatory: boolean;
+  name: string;
+  name_ara?: string | null;
+  code: string;
+  active_ind?: boolean;
+  action_step_id?: number;
+  to_status?: string;
+  sub_status?: string | null;
+  notes_mandatory?: boolean;  // Make it optional since it's not in the API response
 }
 
 // Application models - Fixed to use numeric status from API
@@ -312,7 +315,7 @@ export interface Application {
   serial_number: string;
   created_at: string;
   updated_at: string;
-  available_applicant_actions?: ApplicantAction[]; // Add this line
+  available_applicant_actions?: ApplicantAction[];
 
   // Additional computed properties
   title?: string;

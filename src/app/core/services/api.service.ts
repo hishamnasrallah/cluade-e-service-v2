@@ -355,7 +355,8 @@ export class ApiService {
       .pipe(
         map(response => {
           console.log('✅ API: Applicant action performed successfully:', response);
-          return response;
+          // Ensure response has the expected structure
+          return response || { action_name: 'Action' };
         }),
         catchError(this.handleError)
       );

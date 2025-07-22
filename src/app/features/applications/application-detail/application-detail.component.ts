@@ -242,14 +242,7 @@ interface FieldMetadata {
                   <mat-icon>download</mat-icon>
                   Download
                 </button>
-              </div>
-            </div>
 
-            <!-- Dynamic Applicant Actions -->
-            <div class="action-group" *ngIf="availableApplicantActions.length > 0">
-              <mat-divider></mat-divider>
-              <h4 class="action-group-title">Available Actions</h4>
-              <div class="action-buttons">
                 <button mat-raised-button
                         *ngFor="let action of availableApplicantActions"
                         (click)="performApplicantAction(action)"
@@ -257,10 +250,13 @@ interface FieldMetadata {
                         class="dynamic-action-btn">
                   <mat-spinner diameter="20" *ngIf="isProcessing"></mat-spinner>
                   <mat-icon *ngIf="!isProcessing">play_arrow</mat-icon> <!-- You can customize icons based on action.action_code -->
-                  {{ action.action_name }}
+                  {{ action.name }}
                 </button>
               </div>
+
             </div>
+
+
 
             <!-- Danger zone -->
             <div class="action-group danger-group" *ngIf="canDelete()">
@@ -595,6 +591,12 @@ interface FieldMetadata {
       font-weight: 600;
     }
 
+    .dynamic-action-btn {
+      background: linear-gradient(135deg, #48f1d4 0%, #299786 100%);
+      color: white;
+      font-weight: 600;
+    }
+
     .delete-btn {
       background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
       color: white;
@@ -845,25 +847,6 @@ export class ApplicationDetailComponent implements OnInit {
         console.log('📊 ApplicationDetail: Lookup cache:', this.lookupCache);
         this.isLoading = false;
 
-        // NEW: Check for actionId in query params and trigger action
-        const actionIdFromQueryParams = this.route.snapshot.queryParams['actionId'];
-        if (actionIdFromQueryParams && this.application && this.availableApplicantActions.length > 0) {
-          const targetAction = this.availableApplicantActions.find(
-            action => action.id === parseInt(actionIdFromQueryParams)
-          );
-          if (targetAction) {
-            console.log('⚡ ApplicationDetail: Auto-triggering action from query param:', targetAction.action_name);
-            this.performApplicantAction(targetAction);
-            // Remove the query param to prevent re-triggering on refresh
-            this.router.navigate([], {
-              queryParams: { actionId: null }, // Set actionId to null to remove it
-              queryParamsHandling: 'merge', // Merge with existing query params
-              replaceUrl: true // Replace current URL in history
-            });
-          } else {
-            console.warn('⚠️ ApplicationDetail: Action ID from query param not found in available actions.');
-          }
-        }
       },
       error: (error: any) => {
         console.error('❌ ApplicationDetail: Error loading application data:', error);
@@ -877,21 +860,17 @@ export class ApplicationDetailComponent implements OnInit {
   performApplicantAction(action: ApplicantAction): void {
     if (!this.application) return;
 
-    console.log('⚡ ApplicationDetail: Performing action:', action.action_name, 'for application:', this.application.id);
-    this.isProcessing = true;
+    console.log('⚡ ApplicationDetail: Navigating to action page:', action.name, 'for application:', this.application.id);
 
-    if (action.notes_mandatory) {
-      this.openNotesDialog(action);
-    } else {
-      this.executeApplicantAction(action.id, '');
-    }
+    // Navigate to dedicated action execution page
+    this.router.navigate(['/cases', this.application.id, 'action', action.id]);
   }
 
   // New method to open notes dialog
   openNotesDialog(action: ApplicantAction): void {
     const dialogRef = this.dialog.open(ActionNotesDialogComponent, {
       width: '400px',
-      data: { actionName: action.action_name }
+      data: { actionName: action.name }
     });
 
     dialogRef.afterClosed().subscribe(result => {
@@ -914,7 +893,7 @@ export class ApplicationDetailComponent implements OnInit {
     this.apiService.performApplicantAction(this.application.id, actionId, notes).subscribe({
       next: (response) => {
         console.log('✅ ApplicationDetail: Action executed successfully:', response);
-        this.snackBar.open(`Action "${response.action_name}" performed successfully!`, 'Close', {
+        this.snackBar.open(`Action "${response.name}" performed successfully!`, 'Close', {
           duration: 3000,
           panelClass: ['success-snackbar']
         });

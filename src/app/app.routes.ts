@@ -67,12 +67,23 @@ export const routes: Routes = [
     pathMatch: 'full'
   },
 
-  // Application detail route - requires authentication
+// Application detail route - requires authentication
   {
     path: 'application/:id',
     loadComponent: () => {
       return import('./features/applications/application-detail/application-detail.component').then(m => {
         return m.ApplicationDetailComponent;
+      });
+    },
+    canActivate: [AuthGuard]
+  },
+
+// Case action route - requires authentication
+  {
+    path: 'cases/:caseId/action/:actionId',
+    loadComponent: () => {
+      return import('./features/applications/case-action/case-action.component').then(m => {
+        return m.CaseActionComponent;
       });
     },
     canActivate: [AuthGuard]

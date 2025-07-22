@@ -22,6 +22,7 @@ import { AuthService } from './core/services/auth.service';
 import { ConfigService } from './core/services/config.service';
 import { ApiService } from './core/services/api.service';
 import { FormValidationService } from './core/services/form-validation.service';
+import { CaseService } from './core/services/case.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -45,6 +46,7 @@ export const appConfig: ApplicationConfig = {
     ConfigService,
     ApiService,
     FormValidationService,
+    CaseService,
     {
       provide: HTTP_INTERCEPTORS,
       useClass: IntegrationInterceptor,
