@@ -23,6 +23,8 @@ import {
   WizardState,
   Application, evaluateVisibilityCondition
 } from '../../../core/models/interfaces';
+import {MatExpansionPanel, MatExpansionPanelHeader, MatExpansionPanelTitle} from '@angular/material/expansion';
+import {MatChip} from '@angular/material/chips';
 
 @Component({
   selector: 'app-service-wizard',
@@ -36,11 +38,15 @@ import {
     MatIconModule,
     MatProgressSpinnerModule,
     MatProgressBarModule,
-    DynamicFormComponent
+    DynamicFormComponent,
+    MatExpansionPanelTitle,
+    MatExpansionPanelHeader,
+    MatExpansionPanel,
+    MatChip
   ],
   template: `
     <div class="service-wizard-container">
-      <!-- Header -->
+      <!-- Enhanced Header -->
       <div class="wizard-header">
         <div class="header-content">
           <button mat-icon-button (click)="goBack()" class="back-btn">
@@ -49,48 +55,95 @@ import {
           <div class="header-info">
             <h1 class="wizard-title">
               {{ isEditMode ? 'Edit Application' : 'Service Application' }}
-              {{ getWizardTitle() }}
             </h1>
             <p class="wizard-subtitle" *ngIf="serviceCode">
-              Service Code: {{ serviceCode }} | Service ID: {{ serviceId }}
-              <span *ngIf="isEditMode && existingApplication">
-                | Application #{{ existingApplication.serial_number }}
+              <span class="subtitle-item">
+                <mat-icon class="subtitle-icon">qr_code_2</mat-icon>
+                Service Code: {{ serviceCode }}
+              </span>
+              <span class="subtitle-divider">•</span>
+              <span class="subtitle-item">
+                <mat-icon class="subtitle-icon">tag</mat-icon>
+                Service ID: {{ serviceId }}
+              </span>
+              <span *ngIf="isEditMode && existingApplication" class="subtitle-item">
+                <span class="subtitle-divider">•</span>
+                <mat-icon class="subtitle-icon">description</mat-icon>
+                Application #{{ existingApplication.serial_number }}
               </span>
             </p>
           </div>
-        </div>
-
-        <!-- Progress Bar -->
-        <div class="progress-section" *ngIf="!isLoading && visibleSteps.length > 0">
-          <mat-progress-bar
-            mode="determinate"
-            [value]="getProgressPercentage()"
-            class="main-progress">
-          </mat-progress-bar>
-          <div class="progress-text">
-            Step {{ wizardState.currentStep + 1 }} of {{ wizardState.totalSteps }}
-            <span class="progress-percentage">({{ getProgressPercentage().toFixed(0) }}%)</span>
-            <span *ngIf="isEditMode" class="edit-mode-indicator">
-              <mat-icon class="edit-icon">edit</mat-icon>
+          <div class="header-actions" *ngIf="!isLoading">
+            <button mat-button (click)="saveDraft()" [disabled]="isSubmitting" class="header-draft-btn">
+              <mat-icon>save</mat-icon>
+              {{ isEditMode ? 'Save Changes' : 'Save Draft' }}
+            </button>
+            <mat-chip *ngIf="isEditMode" class="edit-mode-chip">
+              <mat-icon class="chip-icon">edit</mat-icon>
               Edit Mode
-            </span>
+            </mat-chip>
+          </div>
+        </div>
+      </div>
+
+      <!-- Horizontal Progress Steps -->
+      <div class="horizontal-stepper-container" *ngIf="!isLoading && visibleSteps.length > 0">
+        <div class="stepper-wrapper">
+          <div class="stepper-header">
+            <div class="stepper-progress-bar">
+              <div class="progress-track"></div>
+              <div class="progress-fill" [style.width.%]="getProgressPercentage()"></div>
+            </div>
+            <div class="stepper-steps">
+              <div
+                *ngFor="let step of visibleSteps; let i = index"
+                class="stepper-step"
+                [class.active]="i === wizardState.currentStep"
+                [class.completed]="wizardState.completedSteps[i]"
+                [class.clickable]="i < wizardState.currentStep || wizardState.completedSteps[i]"
+                (click)="goToStep(i)">
+                <div class="step-indicator">
+                  <span class="step-number" *ngIf="!wizardState.completedSteps[i]">{{ i + 1 }}</span>
+                  <mat-icon class="step-icon" *ngIf="wizardState.completedSteps[i]">check</mat-icon>
+                </div>
+                <div class="step-info">
+                  <span class="step-name">{{ step.name }}</span>
+                  <span class="step-status">
+                    {{ i === wizardState.currentStep ? 'Current' :
+                    (wizardState.completedSteps[i] ? 'Completed' : 'Pending') }}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Loading State -->
       <div class="loading-container" *ngIf="isLoading">
-        <mat-spinner diameter="60"></mat-spinner>
-        <p class="loading-text">
-          {{ isEditMode ? 'Loading application data...' : 'Loading service flow...' }}
-        </p>
+        <div class="loading-card">
+          <mat-spinner diameter="60"></mat-spinner>
+          <h3 class="loading-title">
+            {{ isEditMode ? 'Loading Application' : 'Preparing Service Form' }}
+          </h3>
+          <p class="loading-text">
+            {{ isEditMode ? 'Retrieving your application data...' : 'Setting up the service flow...' }}
+          </p>
+          <div class="loading-animation">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Error State -->
       <mat-card class="error-card" *ngIf="error && !isLoading">
         <mat-card-content>
           <div class="error-content">
-            <mat-icon class="error-icon">error_outline</mat-icon>
+            <div class="error-icon-wrapper">
+              <mat-icon class="error-icon">error_outline</mat-icon>
+            </div>
             <div class="error-details">
               <h3>{{ isEditMode ? 'Unable to Load Application' : 'Unable to Load Service Flow' }}</h3>
               <p>{{ error }}</p>
@@ -109,200 +162,165 @@ import {
         </mat-card-content>
       </mat-card>
 
-      <!-- Wizard Steps -->
-      <div class="wizard-container" *ngIf="!isLoading && !error && serviceFlowSteps.length > 0">
-        <mat-stepper
-          #stepper
-          [selectedIndex]="wizardState.currentStep"
-          orientation="vertical"
-          class="service-stepper">
+      <!-- Wizard Content -->
+      <div class="wizard-content" *ngIf="!isLoading && !error && currentStep">
+        <!-- Step Header -->
+        <div class="step-header">
+          <h2 class="step-title">{{ currentStep.name }}</h2>
+          <div class="step-progress-info">
+            <span class="progress-text">Step {{ wizardState.currentStep + 1 }} of {{ wizardState.totalSteps }}</span>
+            <span class="progress-percentage">{{ getProgressPercentage().toFixed(0) }}% Complete</span>
+          </div>
+        </div>
 
-          <mat-step
-            *ngFor="let step of visibleSteps; let i = index"
-            [stepControl]="getStepForm(i)"
-            [editable]="true"
-            [optional]="false">
+        <!-- Step Description -->
+        <div class="step-description-wrapper" *ngIf="currentStep.description">
+          <mat-card class="description-card">
+            <mat-card-content>
+              <mat-icon class="description-icon">info</mat-icon>
+              <div class="description-text" [innerHTML]="formatDescription(currentStep.description)"></div>
+            </mat-card-content>
+          </mat-card>
+        </div>
 
-            <!-- Step Label -->
-            <ng-template matStepLabel>
-              <div class="step-label">
-                <span class="step-title">{{ step.name }}</span>
-                <mat-icon *ngIf="wizardState.completedSteps[i]" class="step-check">check_circle</mat-icon>
-              </div>
-            </ng-template>
-
-            <!-- Step Content -->
-            <div class="step-content">
-              <!-- Step Description -->
-              <div class="step-description" *ngIf="step.description">
-                <mat-card class="description-card">
-                  <mat-card-content>
-                    <div [innerHTML]="formatDescription(step.description)"></div>
-                  </mat-card-content>
-                </mat-card>
-              </div>
-
-              <!-- Review Page Notice -->
-              <div class="review-page-notice" *ngIf="step.is_review_page">
-                <mat-card class="review-notice-card">
-                  <mat-card-content>
-                    <div class="review-notice-content">
-                      <mat-icon class="review-notice-icon">visibility</mat-icon>
-                      <div class="review-notice-text">
-                        <strong>Review Page:</strong> Please review all the information you have entered.
-                        All fields are read-only on this page. Use the Previous button to go back and make changes if needed.
-                      </div>
-                    </div>
-                  </mat-card-content>
-                </mat-card>
-              </div>
-              <!-- Edit Mode Notice -->
-              <div class="edit-notice" *ngIf="isEditMode">
-                <mat-card class="notice-card">
-                  <mat-card-content>
-                    <div class="notice-content">
-                      <mat-icon class="notice-icon">edit</mat-icon>
-                      <div class="notice-text">
-                        <strong>Edit Mode:</strong> You are editing an existing application.
-                        Make your changes and click "Update Application" to save.
-                      </div>
-                    </div>
-                  </mat-card-content>
-                </mat-card>
-              </div>
-
-              <!-- Dynamic Form with Complete Form Data -->
-              <div class="form-container">
-                <app-dynamic-form
-                  [categories]="step.categories"
-                  [formData]="wizardState.formData"
-                  [isReviewMode]="step.is_review_page || false"
-                  (formChange)="onFormChange($event)">
-                </app-dynamic-form>
-              </div>
-
-              <!-- Debug Panel -->
-              <div class="debug-panel" *ngIf="debugMode">
-                <h4>Wizard Form Data Debug</h4>
-                <div class="debug-content">
-                  <h5>Complete Wizard Form Data:</h5>
-                  <pre>{{ wizardState.formData | json }}</pre>
-                  <h5>Current Step Fields:</h5>
-                  <pre>{{ getCurrentStepFieldNames() | json }}</pre>
-                  <h5>Edit Mode Info:</h5>
-                  <pre>{{ getEditModeDebugInfo() | json }}</pre>
-                  <button mat-button (click)="debugVisibilityConditions()">Debug Visibility</button>
-                  <button mat-button (click)="debugMode = false">Hide Debug</button>
+        <!-- Review Page Notice -->
+        <div class="review-page-notice" *ngIf="currentStep.is_review_page">
+          <mat-card class="review-notice-card">
+            <mat-card-content>
+              <div class="review-notice-content">
+                <mat-icon class="review-notice-icon">visibility</mat-icon>
+                <div class="review-notice-text">
+                  <strong>Review Page:</strong> Please review all the information you have entered.
+                  All fields are read-only on this page. Use the Previous button to go back and make changes if needed.
                 </div>
               </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
 
-              <!-- Form Validation Messages -->
-              <div class="validation-messages" *ngIf="currentStepValidation && !currentStepValidation.isValid">
-                <mat-card class="validation-card">
-                  <mat-card-content>
-                    <div class="validation-header">
-                      <mat-icon class="warning-icon">warning</mat-icon>
-                      <span>Please fix the following issues:</span>
-                    </div>
-                    <ul class="validation-list">
-                      <li *ngFor="let error of currentStepValidation.errors">{{ error }}</li>
-                    </ul>
-                  </mat-card-content>
-                </mat-card>
+        <!-- Edit Mode Notice -->
+        <div class="edit-notice" *ngIf="isEditMode && wizardState.currentStep === 0">
+          <mat-card class="notice-card">
+            <mat-card-content>
+              <div class="notice-content">
+                <mat-icon class="notice-icon">edit</mat-icon>
+                <div class="notice-text">
+                  <strong>Edit Mode:</strong> You are editing an existing application.
+                  Make your changes and click "Update Application" to save.
+                </div>
               </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
 
-              <!-- Step Actions -->
-              <div class="step-actions">
-                <button mat-button
-                        (click)="previousStep()"
-                        [disabled]="wizardState.currentStep === 0"
-                        class="prev-btn">
-                  <mat-icon>navigate_before</mat-icon>
-                  Previous
-                </button>
+        <!-- Dynamic Form -->
+        <div class="form-wrapper">
+          <app-dynamic-form
+            [categories]="currentStep.categories"
+            [formData]="wizardState.formData"
+            [isReviewMode]="currentStep.is_review_page || false"
+            (formChange)="onFormChange($event)">
+          </app-dynamic-form>
+        </div>
 
-                <div class="action-spacer"></div>
+        <!-- Validation Messages -->
+        <div class="validation-messages" *ngIf="currentStepValidation && !currentStepValidation.isValid">
+          <mat-card class="validation-card">
+            <mat-card-content>
+              <div class="validation-header">
+                <mat-icon class="warning-icon">warning</mat-icon>
+                <span>Please fix the following issues:</span>
+              </div>
+              <ul class="validation-list">
+                <li *ngFor="let error of currentStepValidation.errors">{{ error }}</li>
+              </ul>
+            </mat-card-content>
+          </mat-card>
+        </div>
 
-                <button mat-button
-                        (click)="saveDraft()"
-                        [disabled]="isSubmitting"
-                        class="draft-btn">
-                  <mat-icon>save</mat-icon>
-                  {{ isEditMode ? 'Save Changes' : 'Save Draft' }}
-                </button>
+        <!-- Navigation Actions -->
+        <div class="wizard-actions">
+          <button mat-stroked-button
+                  (click)="previousStep()"
+                  [disabled]="wizardState.currentStep === 0"
+                  class="action-btn prev-btn">
+            <mat-icon>navigate_before</mat-icon>
+            Previous
+          </button>
 
-                <button mat-button
-                        (click)="debugMode = !debugMode"
-                        class="debug-btn">
-                  <mat-icon>bug_report</mat-icon>
-                  {{ debugMode ? 'Hide' : 'Show' }} Debug
-                </button>
+          <div class="action-spacer"></div>
 
-                <button mat-raised-button
-                        color="primary"
-                        (click)="nextStep()"
-                        [disabled]="isSubmitting || (currentStepValidation && !currentStepValidation.isValid)"
-                        class="next-btn">
-                  <mat-spinner diameter="20" *ngIf="isSubmitting && isLastStep()"></mat-spinner>
-                  <mat-icon *ngIf="!isSubmitting">
-                    {{ isLastStep() ? (isEditMode ? 'update' : 'send') : 'navigate_next' }}
-                  </mat-icon>
-                  {{ isLastStep() ? (isEditMode ? 'Update Application' : 'Submit Application') : 'Next' }}
-                </button>
+          <button mat-button
+                  (click)="debugMode = !debugMode"
+                  *ngIf="!isSubmitting"
+                  class="debug-toggle-btn">
+            <mat-icon>bug_report</mat-icon>
+            Debug
+          </button>
+
+          <button mat-raised-button
+                  color="primary"
+                  (click)="nextStep()"
+                  [disabled]="isSubmitting || (currentStepValidation && !currentStepValidation.isValid)"
+                  class="action-btn next-btn">
+            <mat-spinner diameter="20" *ngIf="isSubmitting && isLastStep()"></mat-spinner>
+            <span class="btn-content" *ngIf="!isSubmitting || !isLastStep()">
+              {{ isLastStep() ? (isEditMode ? 'Update Application' : 'Submit Application') : 'Next Step' }}
+              <mat-icon class="btn-icon-right" *ngIf="!isLastStep()">navigate_next</mat-icon>
+              <mat-icon class="btn-icon-right" *ngIf="isLastStep() && !isEditMode">send</mat-icon>
+              <mat-icon class="btn-icon-right" *ngIf="isLastStep() && isEditMode">update</mat-icon>
+            </span>
+          </button>
+        </div>
+
+        <!-- Debug Panel -->
+        <div class="debug-panel" *ngIf="debugMode">
+          <mat-expansion-panel [expanded]="true">
+            <mat-expansion-panel-header>
+              <mat-panel-title>
+                <mat-icon>bug_report</mat-icon>
+                Debug Information
+              </mat-panel-title>
+            </mat-expansion-panel-header>
+            <div class="debug-content">
+              <h5>Complete Wizard Form Data:</h5>
+              <pre>{{ wizardState.formData | json }}</pre>
+              <h5>Current Step Fields:</h5>
+              <pre>{{ getCurrentStepFieldNames() | json }}</pre>
+              <h5>Edit Mode Info:</h5>
+              <pre>{{ getEditModeDebugInfo() | json }}</pre>
+              <div class="debug-actions">
+                <button mat-button (click)="debugVisibilityConditions()">Debug Visibility</button>
+                <button mat-button (click)="debugMode = false">Hide Debug</button>
               </div>
             </div>
-          </mat-step>
-        </mat-stepper>
+          </mat-expansion-panel>
+        </div>
       </div>
     </div>
   `,
   styles: [`
-
-    .review-page-notice {
-      margin-bottom: 24px;
-    }
-
-    .review-notice-card {
-      border-left: 4px solid #2196f3;
-      background: #e3f2fd;
-    }
-
-    .review-notice-content {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-    }
-
-    .review-notice-icon {
-      color: #1976d2;
-      font-size: 24px;
-      margin-top: 2px;
-    }
-
-    .review-notice-text {
-      color: #1565c0;
-      line-height: 1.5;
-      flex: 1;
-    }
-
-    .review-notice-text strong {
-      color: #0d47a1;
-    }
     .service-wizard-container {
-      padding: 24px;
-      max-width: 1000px;
-      margin: 0 auto;
+      min-height: 100vh;
+      background: #f8f9fa;
     }
 
+    /* Enhanced Header */
     .wizard-header {
-      margin-bottom: 32px;
+      background: white;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
 
     .header-content {
+      max-width: 1400px;
+      margin: 0 auto;
       display: flex;
       align-items: center;
-      gap: 16px;
-      margin-bottom: 16px;
+      gap: 24px;
     }
 
     .back-btn {
@@ -310,11 +328,13 @@ import {
       color: #6c757d;
       width: 48px;
       height: 48px;
+      transition: all 0.3s ease;
     }
 
     .back-btn:hover {
       background: #e9ecef;
       color: #495057;
+      transform: translateX(-2px);
     }
 
     .header-info {
@@ -323,105 +343,306 @@ import {
 
     .wizard-title {
       font-size: 28px;
-      font-weight: 600;
+      font-weight: 700;
       color: #2c3e50;
       margin: 0;
       line-height: 1.2;
     }
 
     .wizard-subtitle {
-      font-size: 16px;
-      color: #7f8c8d;
-      margin: 4px 0 0 0;
-    }
-
-    .progress-section {
-      background: white;
-      padding: 16px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .main-progress {
-      height: 8px;
-      border-radius: 4px;
-      margin-bottom: 8px;
-    }
-
-    .progress-text {
       font-size: 14px;
-      color: #666;
-      font-weight: 500;
+      color: #7f8c8d;
+      margin: 8px 0 0 0;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
-    .progress-percentage {
+    .subtitle-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .subtitle-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: #95a5a6;
+    }
+
+    .subtitle-divider {
+      color: #cbd5e0;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-draft-btn {
+      border: 2px solid #17a2b8;
+      color: #17a2b8;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .header-draft-btn:hover {
+      background: #17a2b8;
+      color: white;
+      box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+    }
+
+    .edit-mode-chip {
+      background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+      color: white;
+      font-weight: 600;
+      padding: 4px 16px;
+      height: 32px;
+    }
+
+    .chip-icon {
+      font-size: 16px !important;
+      margin-right: 4px;
+    }
+
+    /* Horizontal Stepper */
+    .horizontal-stepper-container {
+      background: white;
+      padding: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      margin-bottom: 32px;
+    }
+
+    .stepper-wrapper {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    .stepper-header {
+      position: relative;
+    }
+
+    .stepper-progress-bar {
+      position: absolute;
+      top: 28px;
+      left: 40px;
+      right: 40px;
+      height: 4px;
+      z-index: 0;
+    }
+
+    .progress-track {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 100%;
+      background: #e9ecef;
+      border-radius: 2px;
+    }
+
+    .progress-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background: linear-gradient(90deg, #2EC4B6 0%, #2BA99B 100%);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    .stepper-steps {
+      display: flex;
+      justify-content: space-between;
+      position: relative;
+      z-index: 1;
+    }
+
+    .stepper-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      cursor: default;
+      transition: all 0.3s ease;
+      padding: 8px;
+      border-radius: 8px;
+    }
+
+    .stepper-step.clickable {
+      cursor: pointer;
+    }
+
+    .stepper-step.clickable:hover {
+      background: rgba(46, 196, 182, 0.05);
+    }
+
+    .step-indicator {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid #e9ecef;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      color: #95a5a6;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .stepper-step.active .step-indicator {
+      border-color: #2EC4B6;
+      color: #2EC4B6;
+      transform: scale(1.1);
+      box-shadow: 0 4px 16px rgba(46, 196, 182, 0.3);
+    }
+
+    .stepper-step.completed .step-indicator {
+      background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%);
+      border-color: #2EC4B6;
+      color: white;
+    }
+
+    .step-icon {
+      font-size: 28px;
+    }
+
+    .step-info {
+      text-align: center;
+      max-width: 150px;
+    }
+
+    .step-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #2c3e50;
+      line-height: 1.3;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .step-status {
+      font-size: 12px;
+      color: #95a5a6;
+      display: block;
+    }
+
+    .stepper-step.active .step-status {
       color: #2EC4B6;
       font-weight: 600;
     }
 
-    .edit-mode-indicator {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-left: auto;
-      color: #f39c12;
-      font-weight: 600;
-      font-size: 13px;
+    .stepper-step.completed .step-status {
+      color: #27ae60;
     }
 
-    .edit-icon {
-      font-size: 16px !important;
-      width: 16px;
-      height: 16px;
-    }
-
+    /* Loading State */
     .loading-container {
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 300px;
-      gap: 16px;
+      min-height: 500px;
+      padding: 40px;
+    }
+
+    .loading-card {
+      background: white;
+      border-radius: 16px;
+      padding: 48px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+    }
+
+    .loading-title {
+      font-size: 24px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin: 24px 0 12px 0;
     }
 
     .loading-text {
-      color: #6c757d;
+      color: #7f8c8d;
       font-size: 16px;
-      margin: 0;
+      margin: 0 0 24px 0;
     }
 
+    .loading-animation {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .loading-dot {
+      width: 8px;
+      height: 8px;
+      background: #2EC4B6;
+      border-radius: 50%;
+      animation: loadingBounce 1.4s ease-in-out infinite;
+    }
+
+    .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+    .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes loadingBounce {
+      0%, 80%, 100% {
+        transform: scale(0);
+      }
+      40% {
+        transform: scale(1);
+      }
+    }
+
+    /* Error State */
     .error-card {
       margin: 40px auto;
       max-width: 600px;
       border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
     }
 
     .error-content {
       display: flex;
       align-items: center;
-      gap: 20px;
-      text-align: left;
+      gap: 24px;
+      padding: 32px;
+    }
+
+    .error-icon-wrapper {
+      width: 80px;
+      height: 80px;
+      background: rgba(231, 76, 60, 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
 
     .error-icon {
       font-size: 48px;
       color: #e74c3c;
-      flex-shrink: 0;
     }
 
     .error-details h3 {
-      margin: 0 0 8px 0;
+      margin: 0 0 12px 0;
       color: #2c3e50;
-      font-size: 20px;
+      font-size: 22px;
+      font-weight: 600;
     }
 
     .error-details p {
-      margin: 0 0 16px 0;
+      margin: 0 0 20px 0;
       color: #7f8c8d;
-      line-height: 1.5;
+      line-height: 1.6;
     }
 
     .error-actions {
@@ -429,214 +650,409 @@ import {
       gap: 12px;
     }
 
-    .service-stepper {
-      background: transparent;
+    /* Wizard Content */
+    .wizard-content {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 24px 40px;
     }
 
-    .step-label {
+    .step-header {
+      background: white;
+      border-radius: 16px;
+      padding: 24px 32px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 8px;
     }
 
     .step-title {
-      font-weight: 500;
+      font-size: 32px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin: 0;
     }
 
-    .step-check {
-      color: #27ae60;
+    .step-progress-info {
+      text-align: right;
+    }
+
+    .progress-text {
+      font-size: 14px;
+      color: #7f8c8d;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .progress-percentage {
       font-size: 20px;
+      font-weight: 700;
+      color: #2EC4B6;
+      display: block;
     }
 
-    .step-content {
-      padding: 24px 0;
+    /* Description Card */
+    .step-description-wrapper {
+      margin-bottom: 24px;
     }
 
     .description-card {
-      margin-bottom: 24px;
-      border-left: 4px solid #2EC4B6;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #f0fffe 0%, #e6faf8 100%);
+      box-shadow: 0 2px 8px rgba(46, 196, 182, 0.1);
     }
 
+    .description-card mat-card-content {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      padding: 20px 24px;
+    }
+
+    .description-icon {
+      color: #2EC4B6;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .description-text {
+      color: #2c3e50;
+      line-height: 1.6;
+      flex: 1;
+    }
+
+    /* Review Notice */
+    .review-page-notice {
+      margin-bottom: 24px;
+    }
+
+    .review-notice-card {
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #e3f2fd 0%, #d6e9fb 100%);
+      box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1);
+    }
+
+    .review-notice-content {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 20px 24px;
+    }
+
+    .review-notice-icon {
+      color: #1976d2;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .review-notice-text {
+      color: #1565c0;
+      line-height: 1.6;
+      flex: 1;
+    }
+
+    .review-notice-text strong {
+      color: #0d47a1;
+    }
+
+    /* Edit Notice */
     .edit-notice {
       margin-bottom: 24px;
     }
 
     .notice-card {
-      border-left: 4px solid #f39c12;
-      background: #fff9f0;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #fff9f0 0%, #ffedda 100%);
+      box-shadow: 0 2px 8px rgba(243, 156, 18, 0.1);
     }
 
     .notice-content {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 16px;
+      padding: 20px 24px;
     }
 
     .notice-icon {
       color: #f39c12;
       font-size: 24px;
+      flex-shrink: 0;
     }
 
     .notice-text {
       color: #d68910;
-      line-height: 1.5;
+      line-height: 1.6;
+      flex: 1;
     }
 
-    .form-container {
-      margin-bottom: 24px;
-    }
-
-    .debug-panel {
-      margin-bottom: 24px;
-      padding: 16px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      border: 1px solid #dee2e6;
-    }
-
-    .debug-panel h4, .debug-panel h5 {
-      margin: 0 0 12px 0;
-      color: #495057;
-    }
-
-    .debug-content {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .debug-panel pre {
+    /* Form Wrapper */
+    .form-wrapper {
       background: white;
-      padding: 12px;
-      border-radius: 4px;
-      border: 1px solid #ced4da;
-      overflow-x: auto;
-      font-size: 12px;
-      max-height: 200px;
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     }
 
+    /* Validation Messages */
     .validation-messages {
       margin-bottom: 24px;
     }
 
     .validation-card {
-      border-left: 4px solid #f39c12;
-      background: #fff9f0;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #fff9f0 0%, #ffedda 100%);
+      box-shadow: 0 2px 8px rgba(243, 156, 18, 0.1);
     }
 
     .validation-header {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
+      gap: 12px;
+      margin-bottom: 16px;
       font-weight: 600;
       color: #e67e22;
+      font-size: 16px;
     }
 
     .warning-icon {
       color: #f39c12;
+      font-size: 24px;
     }
 
     .validation-list {
       margin: 0;
-      padding-left: 20px;
+      padding-left: 36px;
       color: #d35400;
     }
 
     .validation-list li {
-      margin-bottom: 4px;
+      margin-bottom: 8px;
+      line-height: 1.5;
     }
 
-    .step-actions {
+    /* Navigation Actions */
+    .wizard-actions {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 24px 0;
-      border-top: 1px solid #e0e0e0;
-      margin-top: 24px;
+      gap: 16px;
+      background: white;
+      border-radius: 16px;
+      padding: 24px 32px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      position: sticky;
+      bottom: 24px;
+      z-index: 50;
+    }
+
+    .action-btn {
+      height: 48px;
+      border-radius: 24px;
+      font-weight: 600;
+      font-size: 16px;
+      padding: 0 32px;
+      transition: all 0.3s ease;
+    }
+
+    .prev-btn {
+      color: #6c757d;
+      border: 2px solid #dee2e6;
+    }
+
+    .prev-btn:hover:not(:disabled) {
+      border-color: #6c757d;
+      background: #f8f9fa;
+    }
+
+    .prev-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .action-spacer {
       flex: 1;
     }
 
-    .prev-btn {
-      color: #6c757d;
-    }
-
-    .draft-btn {
-      color: #17a2b8;
-      border: 1px solid #17a2b8;
-    }
-
-    .draft-btn:hover {
-      background: rgba(23, 162, 184, 0.1);
-    }
-
-    .debug-btn {
+    .debug-toggle-btn {
       color: #6f42c1;
-      border: 1px solid #6f42c1;
-    }
-
-    .debug-btn:hover {
-      background: rgba(111, 66, 193, 0.1);
+      font-weight: 600;
     }
 
     .next-btn {
       background: linear-gradient(135deg, #2EC4B6 0%, #2BA99B 100%);
       color: white;
-      font-weight: 600;
-      min-width: 180px;
-      height: 44px;
+      min-width: 200px;
+      box-shadow: 0 4px 16px rgba(46, 196, 182, 0.3);
+    }
+
+    .next-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #2BA99B 0%, #2EC4B6 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(46, 196, 182, 0.4);
     }
 
     .next-btn:disabled {
       background: #bdc3c7;
       color: #95a5a6;
+      box-shadow: none;
     }
 
-    .next-btn mat-icon {
-      margin-right: 6px;
+    .btn-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    /* Responsive design */
-    @media (max-width: 768px) {
-      .service-wizard-container {
-        padding: 16px;
+    .btn-icon-right {
+      font-size: 20px;
+      margin-left: 4px;
+    }
+
+    /* Debug Panel */
+    .debug-panel {
+      margin-top: 24px;
+    }
+
+    .debug-panel mat-expansion-panel {
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    .debug-content {
+      padding: 16px;
+    }
+
+    .debug-content h5 {
+      margin: 16px 0 8px 0;
+      color: #495057;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .debug-content pre {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+      overflow-x: auto;
+      font-size: 12px;
+      max-height: 300px;
+      margin: 0 0 16px 0;
+    }
+
+    .debug-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1200px) {
+      .stepper-step {
+        padding: 4px;
       }
 
+      .step-info {
+        max-width: 120px;
+      }
+
+      .step-name {
+        font-size: 13px;
+      }
+    }
+
+    @media (max-width: 768px) {
       .header-content {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .header-actions {
+        width: 100%;
+        justify-content: space-between;
       }
 
       .wizard-title {
         font-size: 24px;
       }
 
-      .progress-text {
+      .stepper-steps {
+        overflow-x: auto;
+        padding-bottom: 16px;
+      }
+
+      .stepper-progress-bar {
+        display: none;
+      }
+
+      .step-indicator {
+        width: 48px;
+        height: 48px;
+        font-size: 16px;
+      }
+
+      .step-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 4px;
+        gap: 16px;
       }
 
-      .edit-mode-indicator {
-        margin-left: 0;
+      .step-progress-info {
+        text-align: left;
       }
 
-      .step-actions {
+      .step-title {
+        font-size: 24px;
+      }
+
+      .form-wrapper {
+        padding: 24px 16px;
+      }
+
+      .wizard-actions {
         flex-direction: column;
-        gap: 8px;
+        padding: 16px;
+        position: relative;
+        bottom: 0;
       }
 
-      .step-actions button {
+      .action-btn {
         width: 100%;
       }
 
-      .error-content {
-        flex-direction: column;
-        text-align: center;
+      .action-spacer {
+        display: none;
+      }
+
+      .debug-toggle-btn {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stepper-wrapper {
+        padding: 24px 16px;
+      }
+
+      .wizard-content {
+        padding: 0 16px 24px;
+      }
+
+      .step-info {
+        display: none;
+      }
+
+      .wizard-subtitle {
+        font-size: 12px;
+      }
+
+      .subtitle-item {
+        font-size: 12px;
       }
     }
   `]
@@ -1304,5 +1720,13 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.router.navigate(['/home']);
     }, 1500);
+  }
+  goToStep(stepIndex: number): void {
+    // Only allow navigation to previous steps or completed steps
+    if (stepIndex < this.wizardState.currentStep || this.wizardState.completedSteps[stepIndex]) {
+      this.wizardState.currentStep = stepIndex;
+      this.validateCurrentStep();
+      console.log('📍 ServiceWizard: Navigated to step', stepIndex + 1);
+    }
   }
 }
