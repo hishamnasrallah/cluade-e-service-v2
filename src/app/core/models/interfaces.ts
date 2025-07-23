@@ -165,7 +165,19 @@ export interface VisibilityCondition {
   condition_logic: ConditionRule[];
 }
 
-// Service flow field models - Enhanced with better typing
+// Add these new interfaces before ServiceFlowField
+export interface FieldCalculation {
+  condition_logic: CalculationRule[];
+  condition_id?: number;
+}
+
+export interface CalculationRule {
+  field?: string;
+  operation: string; // '+', '-', '*', '/', '**', 'copy', 'sum', '='
+  value?: any; // Can be a number, string, or { field: string } for field references
+}
+
+// Update ServiceFlowField by adding calculations at the end
 export interface ServiceFlowField {
   name: string;
   integrations?: FieldIntegration[];
@@ -174,43 +186,43 @@ export interface ServiceFlowField {
   sequence?: number;
   display_name_ara: string | null;
   field_type: 'text'
-  | 'textarea'
-  | 'number'
-  | 'decimal'
-  | 'boolean'
-  | 'date'
-  | 'datetime'
-  | 'time'
-  | 'choice'
-  | 'multi_choice'
-  | 'lookup'
-  | 'file'
-  | 'image'
-  | 'json'
-  | 'array'
-  | 'currency'
-  | 'percentage'
-  | 'rating'
-  | 'slug'
-  | 'color_picker'
-  | 'richtext'
-  | 'foreign_key'
-  | 'many_to_many'
-  | 'one_to_one'
-  | 'coordinates'
-  | 'address'
-  | 'password'
-  | 'uuid'
-  | 'ip_address'
-  | 'url'
-  | 'email'
-  | 'phone_number'
-  | 'regex'
-  | 'range'
-  | 'dynamic_field'
-  | 'calculated_field'
-  | 'nested_fields'
-  | 'dynamic_sub_fields';
+    | 'textarea'
+    | 'number'
+    | 'decimal'
+    | 'boolean'
+    | 'date'
+    | 'datetime'
+    | 'time'
+    | 'choice'
+    | 'multi_choice'
+    | 'lookup'
+    | 'file'
+    | 'image'
+    | 'json'
+    | 'array'
+    | 'currency'
+    | 'percentage'
+    | 'rating'
+    | 'slug'
+    | 'color_picker'
+    | 'richtext'
+    | 'foreign_key'
+    | 'many_to_many'
+    | 'one_to_one'
+    | 'coordinates'
+    | 'address'
+    | 'password'
+    | 'uuid'
+    | 'ip_address'
+    | 'url'
+    | 'email'
+    | 'phone_number'
+    | 'regex'
+    | 'range'
+    | 'dynamic_field'
+    | 'calculated_field'
+    | 'nested_fields'
+    | 'dynamic_sub_fields';
   mandatory: boolean;
   lookup: number | null;
   allowed_lookups: LookupOption[];
@@ -245,6 +257,10 @@ export interface ServiceFlowField {
   max_file_size?: number | null;
   image_max_width?: number | null;
   image_max_height?: number | null;
+
+  // Calculated field specific - NEW
+  calculations?: FieldCalculation[];
+  default_value?: string;
 }
 
 

@@ -1288,12 +1288,19 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
   }
 
   getDefaultValue(field: any): any {
+    // If field has default_value from backend, convert it based on field type
+    if (field.default_value !== undefined && field.default_value !== null) {
+      return this.convertDefaultValue(field.default_value, field.field_type);
+    }
+
+    // Fall back to legacy behavior
     switch (field.field_type) {
       case 'boolean':
         return field.default_boolean || false;
       case 'number':
       case 'decimal':
       case 'percentage':
+      case 'calculated_field':
         return null;
       case 'choice':
         return field.max_selections === 1 ? null : [];
@@ -1301,6 +1308,120 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
         return null;
       default:
         return '';
+    }
+  }
+
+  /**
+   * Convert default value string to appropriate type based on field type
+   */
+  private convertDefaultValue(defaultValue: string, fieldType: string): any {
+    // Same implementation as in dynamic-form.component.ts
+    // Handle empty string
+    if (defaultValue === '') {
+      switch (fieldType) {
+        case 'text':
+        case 'textarea':
+        case 'email':
+        case 'url':
+        case 'phone_number':
+          return '';
+        case 'number':
+        case 'decimal':
+        case 'percentage':
+        case 'currency':
+        case 'calculated_field':
+          return null;
+        case 'boolean':
+          return false;
+        case 'choice':
+        case 'multi_choice':
+          return null;
+        case 'date':
+        case 'datetime':
+        case 'time':
+          return null;
+        default:
+          return null;
+      }
+    }
+
+    // Convert based on field type
+    switch (fieldType) {
+      case 'text':
+      case 'textarea':
+      case 'email':
+      case 'url':
+      case 'phone_number':
+      case 'password':
+      case 'uuid':
+      case 'ip_address':
+      case 'slug':
+      case 'color_picker':
+      case 'richtext':
+        return defaultValue;
+
+      case 'number':
+      case 'decimal':
+      case 'percentage':
+      case 'currency':
+      case 'calculated_field':
+        const num = Number(defaultValue);
+        return isNaN(num) ? null : num;
+
+      case 'boolean':
+        const lowerValue = defaultValue.toLowerCase().trim();
+        return lowerValue === 'true' || lowerValue === '1' || lowerValue === 'yes' || lowerValue === 'on';
+
+      case 'date':
+      case 'datetime':
+        try {
+          const date = new Date(defaultValue);
+          if (!isNaN(date.getTime())) {
+            return defaultValue;
+          }
+        } catch (e) {
+          console.warn('Invalid date default value:', defaultValue);
+        }
+        return null;
+
+      case 'time':
+        return defaultValue;
+
+      case 'choice':
+      case 'lookup':
+        const choiceNum = Number(defaultValue);
+        return isNaN(choiceNum) ? defaultValue : choiceNum;
+
+      case 'multi_choice':
+        try {
+          const parsed = JSON.parse(defaultValue);
+          if (Array.isArray(parsed)) {
+            return parsed.map(val => {
+              const num = Number(val);
+              return isNaN(num) ? val : num;
+            });
+          }
+        } catch (e) {
+          const num = Number(defaultValue);
+          return [isNaN(num) ? defaultValue : num];
+        }
+        return [];
+
+      case 'json':
+      case 'array':
+        try {
+          return JSON.parse(defaultValue);
+        } catch (e) {
+          console.warn('Invalid JSON default value:', defaultValue);
+          return null;
+        }
+
+      default:
+        const unknownNum = Number(defaultValue);
+        if (!isNaN(unknownNum) && defaultValue.trim() !== '') {
+          return unknownNum;
+        }
+        return defaultValue;
     }
   }
 

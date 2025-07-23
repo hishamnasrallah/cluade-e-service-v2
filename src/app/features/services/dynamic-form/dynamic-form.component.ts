@@ -27,8 +27,9 @@ import {
   evaluateVisibilityCondition,
   LookupOption
 } from '../../../core/models/interfaces';
-import {ApiService} from '../../../core/services/api.service';
+import { ApiService } from '../../../core/services/api.service';
 import { FieldIntegrationService } from '../../../core/services/field-integration.service';
+import { FieldCalculationService } from '../../../core/services/field-calculation.service';
 
 // Import all field components
 import {TextFieldComponent} from './field-components/text-field/text-field.component';
@@ -42,6 +43,9 @@ import {DateFieldComponent} from './field-components/date-field/date-field.compo
 import {DatetimeFieldComponent} from './field-components/datetime-field/datetime-field.component';
 import {TimeFieldComponent} from './field-components/time-field/time-field.component';
 import {ColorFieldComponent} from './field-components/color-field/color-field.component';
+import {
+  CalculatedFieldComponent
+} from '@features/services/dynamic-form/field-components/calculated-field/calculated-field.component';
 
 @Component({
   selector: 'app-dynamic-form',
@@ -65,7 +69,8 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
     DateFieldComponent,
     DatetimeFieldComponent,
     TimeFieldComponent,
-    ColorFieldComponent
+    ColorFieldComponent,
+    CalculatedFieldComponent
   ],
   template: `
     <div class="dynamic-form-container">
@@ -193,6 +198,15 @@ import {ColorFieldComponent} from './field-components/color-field/color-field.co
                     (valueChange)="onFieldChange(field.name, $event)"
                     (fieldBlur)="onFieldBlur($event)">
                   </app-percentage-field>
+
+                  <!-- Calculated Fields -->
+                  <app-calculated-field
+                    *ngIf="isCalculatedField(field)"
+                    [field]="getFieldWithReviewMode(field)"
+                    [value]="getFieldValue(field.name)"
+                    (valueChange)="onFieldChange(field.name, $event)"
+                    (fieldBlur)="onFieldBlur($event)">
+                  </app-calculated-field>
 
                   <!-- Date Fields -->
                   <app-date-field
@@ -710,6 +724,7 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
     private apiService: ApiService,
     private cdr: ChangeDetectorRef,
     private fieldIntegrationService: FieldIntegrationService,
+    private fieldCalculationService: FieldCalculationService,
     private snackBar: MatSnackBar
   ) {
     this.dynamicForm = this.fb.group({});
@@ -732,6 +747,11 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
       // Update form controls with new values
       this.updateFormControls();
 
+      // Update calculated fields after form data changes
+      if (this.dynamicForm) {
+        this.updateCalculatedFields();
+      }
+
       // Force change detection to re-evaluate visibility
       this.cdr.detectChanges();
     }
@@ -752,6 +772,7 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
 
     const formControls: any = {};
 
+    // First pass: Create all form controls with initial values
     this.categories.forEach(category => {
       category.fields.forEach((field: ServiceFlowField) => {
         const defaultValue = this.getDefaultValue(field);
@@ -761,6 +782,11 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
         const initialValue = currentValue !== undefined ? currentValue : defaultValue;
 
         formControls[field.name] = [initialValue];
+
+        // Update formData with initial value to ensure it's available for calculations
+        if (this.formData[field.name] === undefined) {
+          this.formData[field.name] = initialValue;
+        }
 
         console.log('📝 DynamicForm: Added field control:', field.name, 'Type:', field.field_type, 'Value:', initialValue);
       });
@@ -775,6 +801,10 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
       console.log('📊 DynamicForm: Internal form value changed:', value);
       this.formChange.emit(value);
     });
+
+    // Calculate all calculated fields after form is built
+    // Use immediate execution to ensure calculations happen right away
+    this.updateCalculatedFields();
 
     console.log('✅ DynamicForm: Form built with', Object.keys(formControls).length, 'controls');
   }
@@ -804,21 +834,203 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   getDefaultValue(field: ServiceFlowField): any {
+    // If field has default_value from backend, convert it based on field type
+    if (field.default_value !== undefined && field.default_value !== null) {
+      return this.convertDefaultValue(field.default_value, field.field_type);
+    }
+
+    // Fall back to legacy behavior for backward compatibility
     switch (field.field_type) {
       case 'boolean':
         return field.default_boolean || false;
       case 'number':
       case 'decimal':
       case 'percentage':
+      case 'calculated_field':
         return null;
       case 'choice':
+      case 'multi_choice':
         return field.max_selections === 1 ? null : [];
       case 'file':
+      case 'image':
+        return null;
+      case 'date':
+      case 'datetime':
+      case 'time':
         return null;
       default:
         return '';
     }
   }
+
+  /**
+   * Convert default value string to appropriate type based on field type
+   */
+  private convertDefaultValue(defaultValue: string, fieldType: string): any {
+    // Handle empty string
+    if (defaultValue === '') {
+      switch (fieldType) {
+        case 'text':
+        case 'textarea':
+        case 'email':
+        case 'url':
+        case 'phone_number':
+          return '';
+        case 'number':
+        case 'decimal':
+        case 'percentage':
+        case 'currency':
+        case 'calculated_field':
+          return null;
+        case 'boolean':
+          return false;
+        case 'choice':
+        case 'multi_choice':
+          return null;
+        case 'date':
+        case 'datetime':
+        case 'time':
+          return null;
+        default:
+          return null;
+      }
+    }
+
+    // Convert based on field type
+    switch (fieldType) {
+      case 'text':
+      case 'textarea':
+      case 'email':
+      case 'url':
+      case 'phone_number':
+      case 'password':
+      case 'uuid':
+      case 'ip_address':
+      case 'slug':
+      case 'color_picker':
+      case 'richtext':
+        // Keep as string
+        return defaultValue;
+
+      case 'number':
+      case 'decimal':
+      case 'percentage':
+      case 'currency':
+      case 'calculated_field':
+      case 'calculated field':
+        // Convert to number
+        const num = Number(defaultValue);
+        return isNaN(num) ? null : num;
+
+      case 'boolean':
+        // Convert to boolean
+        const lowerValue = defaultValue.toLowerCase().trim();
+        return lowerValue === 'true' || lowerValue === '1' || lowerValue === 'yes' || lowerValue === 'on';
+
+      case 'date':
+        // Convert to date string in YYYY-MM-DD format
+        try {
+          const date = new Date(defaultValue);
+          if (!isNaN(date.getTime())) {
+            return defaultValue; // Keep as ISO string if valid
+          }
+        } catch (e) {
+          console.warn('Invalid date default value:', defaultValue);
+        }
+        return null;
+
+      case 'datetime':
+        // Convert to datetime string
+        try {
+          const datetime = new Date(defaultValue);
+          if (!isNaN(datetime.getTime())) {
+            return defaultValue; // Keep as ISO string if valid
+          }
+        } catch (e) {
+          console.warn('Invalid datetime default value:', defaultValue);
+        }
+        return null;
+
+      case 'time':
+        // Keep as string in HH:mm format
+        return defaultValue;
+
+      case 'choice':
+      case 'lookup':
+        // For single choice, convert to number if it's a numeric ID
+        const choiceNum = Number(defaultValue);
+        return isNaN(choiceNum) ? defaultValue : choiceNum;
+
+      case 'multi_choice':
+        // For multiple choice, try to parse as JSON array
+        try {
+          const parsed = JSON.parse(defaultValue);
+          if (Array.isArray(parsed)) {
+            // Convert array elements to numbers if they're numeric IDs
+            return parsed.map(val => {
+              const num = Number(val);
+              return isNaN(num) ? val : num;
+            });
+          }
+        } catch (e) {
+          // If not valid JSON, treat as single value
+          const num = Number(defaultValue);
+          return [isNaN(num) ? defaultValue : num];
+        }
+        return [];
+
+      case 'json':
+      case 'array':
+        // Parse JSON string
+        try {
+          return JSON.parse(defaultValue);
+        } catch (e) {
+          console.warn('Invalid JSON default value:', defaultValue);
+          return null;
+        }
+
+      case 'rating':
+        // Convert to number for rating
+        const rating = Number(defaultValue);
+        return isNaN(rating) ? 0 : rating;
+
+      case 'coordinates':
+        // Try to parse as JSON object with lat/lng
+        try {
+          const coords = JSON.parse(defaultValue);
+          if (coords.lat !== undefined && coords.lng !== undefined) {
+            return coords;
+          }
+        } catch (e) {
+          console.warn('Invalid coordinates default value:', defaultValue);
+        }
+        return null;
+
+      case 'address':
+        // Keep as string or parse if JSON
+        try {
+          return JSON.parse(defaultValue);
+        } catch (e) {
+          return defaultValue; // Keep as string if not JSON
+        }
+
+      case 'file':
+      case 'image':
+        // File fields don't have default values
+        return null;
+
+      default:
+        // For unknown types, try to infer
+        // Try number
+        const unknownNum = Number(defaultValue);
+        if (!isNaN(unknownNum) && defaultValue.trim() !== '') {
+          return unknownNum;
+        }
+        // Otherwise keep as string
+        return defaultValue;
+    }
+  }
+
   // Add this method to handle field changes with integrations:
   async onFieldChangeWithIntegration(field: ServiceFlowField, fieldName: string, value: any): Promise<void> {
     console.log('🔧 DynamicForm: Field changed with integration check:', fieldName, '=', value);
@@ -988,8 +1200,76 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
     // Update form data
     this.formData[fieldName] = value;
 
+    // Check if this field affects any calculated fields
+    const affectsCalculatedFields = this.doesFieldAffectCalculations(fieldName);
+
+    if (affectsCalculatedFields) {
+      console.log(`🧮 DynamicForm: Field ${fieldName} affects calculated fields, recalculating...`);
+      this.updateCalculatedFields();
+    }
+
     // Emit change without triggering integration
     this.formChange.emit(this.formData);
+  }
+
+  /**
+   * Check if a field affects any calculated fields
+   */
+  private doesFieldAffectCalculations(fieldName: string): boolean {
+    let affects = false;
+
+    this.categories.forEach(category => {
+      category.fields.forEach(field => {
+        if (field.field_type === 'calculated_field' && field.calculations) {
+          const dependencies = this.fieldCalculationService.getFieldDependencies(field);
+          if (dependencies.includes(fieldName)) {
+            affects = true;
+          }
+        }
+      });
+    });
+
+    return affects;
+  }
+
+  /**
+   * Update all calculated fields based on current form data
+   */
+  private updateCalculatedFields(): void {
+    console.log('\n========== CALCULATION UPDATE START ==========');
+    console.log('🧮 DynamicForm: Updating calculated fields...');
+    console.log('📊 DynamicForm: Current form data state:', JSON.parse(JSON.stringify(this.formData)));
+
+    const calculatedValues = this.fieldCalculationService.calculateAllFields(
+      this.categories,
+      this.formData
+    );
+
+    console.log('📋 DynamicForm: Calculated values to apply:', calculatedValues);
+
+    // Update form controls and form data with calculated values
+    Object.entries(calculatedValues).forEach(([fieldName, value]) => {
+      const oldValue = this.formData[fieldName];
+      const control = this.dynamicForm.get(fieldName);
+
+      if (control) {
+        control.setValue(value, { emitEvent: false });
+        console.log(`✏️ DynamicForm: Updated control "${fieldName}": ${oldValue} → ${value}`);
+      }
+
+      this.formData[fieldName] = value;
+      console.log(`📝 DynamicForm: Updated formData["${fieldName}"]: ${oldValue} → ${value}`);
+    });
+
+    if (Object.keys(calculatedValues).length > 0) {
+      console.log('✅ DynamicForm: All calculated fields updated successfully');
+      console.log('📊 DynamicForm: New form data state:', JSON.parse(JSON.stringify(this.formData)));
+      this.cdr.detectChanges();
+    } else {
+      console.log('ℹ️ DynamicForm: No calculated values to update');
+    }
+
+    console.log('========== CALCULATION UPDATE END ==========\n');
   }
 
   getFieldValue(fieldName: string): any {
@@ -1240,13 +1520,20 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
     return field.field_type === 'url';
   }
 
+  isCalculatedField(field: ServiceFlowField): boolean {
+    const fieldType = field.field_type?.toLowerCase().trim();
+    return fieldType === 'calculated_field' ||
+      fieldType === 'calculated field' ||
+      fieldType === 'calculatedfield';
+  }
+
   isOtherField(field: ServiceFlowField): boolean {
     return !this.isTextField(field) && !this.isNumberField(field) &&
       !this.isBooleanField(field) && !this.isChoiceField(field) &&
       !this.isFileField(field) && !this.isDecimalField(field) &&
       !this.isPercentageField(field) && !this.isDateField(field) &&
       !this.isEmailField(field) && !this.isPhoneField(field) &&
-      !this.isUrlField(field);
+      !this.isUrlField(field) && !this.isCalculatedField(field);
   }
 
   getSortedVisibleFields(fields: ServiceFlowField[]): ServiceFlowField[] {
