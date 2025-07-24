@@ -199,14 +199,14 @@ import {
                     (fieldBlur)="onFieldBlur($event)">
                   </app-percentage-field>
 
-                  <!-- Calculated Fields -->
-                  <app-calculated-field
-                    *ngIf="isCalculatedField(field)"
-                    [field]="getFieldWithReviewMode(field)"
-                    [value]="getFieldValue(field.name)"
-                    (valueChange)="onFieldChange(field.name, $event)"
-                    (fieldBlur)="onFieldBlur($event)">
-                  </app-calculated-field>
+                  <!-- Fields with calculations should be readonly -->
+<!--                  <app-calculated-field-->
+<!--                    *ngIf="hasCalculations(field)"-->
+<!--                    [field]="getFieldWithReviewMode(field)"-->
+<!--                    [value]="getFieldValue(field.name)"-->
+<!--                    (valueChange)="onFieldChange(field.name, $event)"-->
+<!--                    (fieldBlur)="onFieldBlur($event)">-->
+<!--                  </app-calculated-field>-->
 
                   <!-- Date Fields -->
                   <app-date-field
@@ -1220,7 +1220,8 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
 
     this.categories.forEach(category => {
       category.fields.forEach(field => {
-        if (field.field_type === 'calculated_field' && field.calculations) {
+        // Check if field has calculations (regardless of field type)
+        if (field.calculations && field.calculations.length > 0) {
           const dependencies = this.fieldCalculationService.getFieldDependencies(field);
           if (dependencies.includes(fieldName)) {
             affects = true;
@@ -1533,7 +1534,8 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
       !this.isFileField(field) && !this.isDecimalField(field) &&
       !this.isPercentageField(field) && !this.isDateField(field) &&
       !this.isEmailField(field) && !this.isPhoneField(field) &&
-      !this.isUrlField(field) && !this.isCalculatedField(field);
+      !this.isUrlField(field) && !this.isCalculatedField(field) &&
+      !this.hasCalculations(field); // Don't treat calculated fields as "other"
   }
 
   getSortedVisibleFields(fields: ServiceFlowField[]): ServiceFlowField[] {
@@ -1569,5 +1571,9 @@ export class DynamicFormComponent implements OnInit, OnChanges, OnDestroy {
       };
     }
     return field;
+  }
+
+  hasCalculations(field: ServiceFlowField): boolean {
+    return !!(field.calculations && field.calculations.length > 0);
   }
 }

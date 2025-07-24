@@ -20,8 +20,7 @@ export class FieldCalculationService {
 
     const calculatedValues: { [key: string]: any } = {};
 
-    // Find all calculated fields
-    // Find all calculated fields
+    // Find all fields with calculations (regardless of field type)
     const calculatedFields: ServiceFlowField[] = [];
     let totalFieldsChecked = 0;
 
@@ -32,20 +31,11 @@ export class FieldCalculationService {
         totalFieldsChecked++;
         console.log(`  📄 Field "${field.name}": type="${field.field_type}", has calculations=${!!field.calculations}`);
 
-        // Check for calculated field with more flexible comparison
-        const fieldType = field.field_type?.toLowerCase().trim();
-        const isCalculatedField = fieldType === 'calculated_field' ||
-          fieldType === 'calculated field' ||
-          fieldType === 'calculatedfield';
-
-        if (isCalculatedField) {
-          console.log(`  ✅ Found calculated field: "${field.name}"`);
-          if (field.calculations && field.calculations.length > 0) {
-            console.log(`    📊 Has ${field.calculations.length} calculation(s)`);
-            calculatedFields.push(field);
-          } else {
-            console.log(`    ⚠️ No calculations defined for calculated field "${field.name}"`);
-          }
+        // Check if field has calculations defined (regardless of field type)
+        if (field.calculations && field.calculations.length > 0) {
+          console.log(`  ✅ Found field with calculations: "${field.name}" (type: ${field.field_type})`);
+          console.log(`    📊 Has ${field.calculations.length} calculation(s)`);
+          calculatedFields.push(field);
         }
       });
     });

@@ -1207,7 +1207,6 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
     this.validateCurrentStep();
   }
 
-  // Initialize form data with all fields from all steps
   initializeCompleteFormData(): void {
     console.log('🏗️ ServiceWizard: Initializing complete form data...');
 
@@ -1226,6 +1225,8 @@ export class ServiceWizardComponent implements OnInit, OnDestroy {
 
     this.wizardState.formData = completeFormData;
     console.log('✅ ServiceWizard: Complete form data initialized:', this.wizardState.formData);
+
+    // DynamicFormComponent will handle calculations when it receives this data
   }
 
   // Populate form with existing application data
