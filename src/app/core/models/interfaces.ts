@@ -173,8 +173,21 @@ export interface FieldCalculation {
 
 export interface CalculationRule {
   field?: string;
-  operation: string; // '+', '-', '*', '/', '**', 'copy', 'sum', '='
+  operation: string; // '+', '-', '*', '/', '**', 'copy', 'sum', '=', 'age_conditional', 'if_equals', 'if'
   value?: any; // Can be a number, string, or { field: string } for field references
+
+  // For age_conditional operation
+  age_threshold?: number;
+  under_age_field?: string;
+  over_age_field?: string;
+
+  // For if_equals operation
+  check_value?: any;
+  then_value?: any;
+  else_value?: any;
+
+  // For if operation
+  condition_operator?: string; // '=', '!=', '>', '<', '>=', '<='
 }
 
 // Update ServiceFlowField by adding calculations at the end

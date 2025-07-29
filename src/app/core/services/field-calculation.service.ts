@@ -41,14 +41,21 @@ export class FieldCalculationService {
     });
 
     console.log(`📊 FieldCalculation: Checked ${totalFieldsChecked} total fields`);
-
     console.log(`📋 FieldCalculation: Found ${calculatedFields.length} calculated fields:`,
       calculatedFields.map(f => ({ name: f.name, calculations: f.calculations })));
 
-    // Calculate values for each calculated field
-    calculatedFields.forEach(field => {
+    // Sort fields by dependency order
+    const sortedFields = this.sortFieldsByDependency(calculatedFields);
+    console.log('📊 FieldCalculation: Sorted fields by dependency:', sortedFields.map(f => f.name));
+
+    // Calculate values in dependency order
+    sortedFields.forEach(field => {
       console.log(`\n🔄 FieldCalculation: Processing field "${field.name}"`);
-      const value = this.calculateFieldValue(field, formData);
+
+      // Create a working copy of formData that includes already calculated values
+      const workingFormData = { ...formData, ...calculatedValues };
+
+      const value = this.calculateFieldValue(field, workingFormData);
       if (value !== undefined) {
         calculatedValues[field.name] = value;
         console.log(`✅ FieldCalculation: Result for "${field.name}" = ${value}`);
@@ -59,6 +66,57 @@ export class FieldCalculationService {
 
     console.log('\n📊 FieldCalculation: Final calculated values:', calculatedValues);
     return calculatedValues;
+  }
+
+  /**
+   * Sort fields by dependency order using topological sort
+   */
+  private sortFieldsByDependency(fields: ServiceFlowField[]): ServiceFlowField[] {
+    // Build dependency graph
+    const dependencyGraph = new Map<string, Set<string>>();
+    const fieldMap = new Map<string, ServiceFlowField>();
+
+    // Initialize graph
+    fields.forEach(field => {
+      fieldMap.set(field.name, field);
+      dependencyGraph.set(field.name, new Set(this.getFieldDependencies(field)));
+    });
+
+    // Topological sort
+    const sorted: ServiceFlowField[] = [];
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+
+    const visit = (fieldName: string) => {
+      if (visited.has(fieldName)) return;
+      if (visiting.has(fieldName)) {
+        console.warn(`⚠️ FieldCalculation: Circular dependency detected involving field: ${fieldName}`);
+        return;
+      }
+
+      visiting.add(fieldName);
+
+      // Visit dependencies first
+      const dependencies = dependencyGraph.get(fieldName) || new Set();
+      dependencies.forEach(dep => {
+        if (fieldMap.has(dep)) {
+          visit(dep);
+        }
+      });
+
+      visiting.delete(fieldName);
+      visited.add(fieldName);
+
+      const field = fieldMap.get(fieldName);
+      if (field) {
+        sorted.push(field);
+      }
+    };
+
+    // Visit all fields
+    fields.forEach(field => visit(field.name));
+
+    return sorted;
   }
 
   /**
@@ -144,6 +202,24 @@ export class FieldCalculationService {
       value: rule.value,
       previousResult: previousResult
     });
+
+    // Handle age_conditional operation
+    if (rule.operation === 'age_conditional') {
+      console.log('🎂 FieldCalculation: Performing AGE_CONDITIONAL operation');
+      return this.evaluateAgeConditional(rule, formData);
+    }
+
+    // Handle if_equals operation
+    if (rule.operation === 'if_equals') {
+      console.log('❓ FieldCalculation: Performing IF_EQUALS operation');
+      return this.evaluateIfEquals(rule, formData);
+    }
+
+    // Handle if operation
+    if (rule.operation === 'if') {
+      console.log('🔀 FieldCalculation: Performing IF operation');
+      return this.evaluateIf(rule, formData);
+    }
 
     // Handle sum operation
     if (rule.operation === 'sum' && Array.isArray(rule.value)) {
@@ -238,6 +314,161 @@ export class FieldCalculationService {
         console.warn('⚠️ FieldCalculation: Unknown operation:', rule.operation);
         return baseValue;
     }
+  }
+
+  /**
+   * Evaluate age conditional calculation
+   */
+  private evaluateAgeConditional(rule: any, formData: { [key: string]: any }): any {
+    const dobFieldName = rule.field;
+    const dobValue = formData[dobFieldName];
+
+    if (!dobValue) {
+      console.warn('⚠️ FieldCalculation: No date of birth value found');
+      return 0;
+    }
+
+    // Calculate age from DOB
+    const age = this.calculateAge(dobValue);
+    console.log(`🎂 FieldCalculation: Calculated age: ${age} from DOB: ${dobValue}`);
+
+    const ageThreshold = rule.age_threshold || 18;
+    const underAgeField = rule.under_age_field;
+    const overAgeField = rule.over_age_field;
+
+    if (age < ageThreshold) {
+      const underValue = formData[underAgeField] || 0;
+      console.log(`✅ FieldCalculation: Age ${age} < ${ageThreshold}, returning value from "${underAgeField}": ${underValue}`);
+      return underValue;
+    } else {
+      const overValue = formData[overAgeField] || 0;
+      console.log(`✅ FieldCalculation: Age ${age} >= ${ageThreshold}, returning value from "${overAgeField}": ${overValue}`);
+      return overValue;
+    }
+  }
+
+  /**
+   * Calculate age from date of birth
+   */
+  private calculateAge(dob: string | Date): number {
+    const birthDate = new Date(dob);
+    const today = new Date();
+
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    return age;
+  }
+
+  /**
+   * Evaluate if_equals conditional
+   */
+  private evaluateIfEquals(rule: any, formData: { [key: string]: any }): any {
+    const fieldName = rule.field;
+    const fieldValue = formData[fieldName];
+    const checkValue = rule.check_value;
+    const thenValue = rule.then_value;
+    const elseValue = rule.else_value;
+
+    console.log(`❓ FieldCalculation: Checking if "${fieldName}" (${fieldValue}) equals ${checkValue}`);
+
+    // Convert values for comparison if needed
+    const isEqual = this.compareValues(fieldValue, checkValue);
+
+    if (isEqual) {
+      console.log(`✅ FieldCalculation: Values are equal, returning then_value: ${thenValue}`);
+      return this.resolveValue(thenValue, formData);
+    } else {
+      console.log(`❌ FieldCalculation: Values are not equal, returning else_value: ${elseValue}`);
+      return this.resolveValue(elseValue, formData);
+    }
+  }
+
+  /**
+   * Evaluate complex if conditional
+   */
+  private evaluateIf(rule: any, formData: { [key: string]: any }): any {
+    const fieldName = rule.field;
+    const fieldValue = formData[fieldName];
+    const operator = rule.condition_operator || '=';
+    const checkValue = rule.check_value;
+    const thenValue = rule.then_value;
+    const elseValue = rule.else_value;
+
+    console.log(`🔀 FieldCalculation: Evaluating if "${fieldName}" (${fieldValue}) ${operator} ${checkValue}`);
+
+    const conditionMet = this.evaluateCondition(fieldValue, operator, checkValue);
+
+    if (conditionMet) {
+      console.log(`✅ FieldCalculation: Condition met, returning then_value`);
+      return this.resolveValue(thenValue, formData);
+    } else {
+      console.log(`❌ FieldCalculation: Condition not met, returning else_value`);
+      return this.resolveValue(elseValue, formData);
+    }
+  }
+
+  /**
+   * Compare values for equality
+   */
+  private compareValues(value1: any, value2: any): boolean {
+    // Handle null/undefined
+    if (value1 === null || value1 === undefined) value1 = '';
+    if (value2 === null || value2 === undefined) value2 = '';
+
+    // Try numeric comparison first
+    const num1 = Number(value1);
+    const num2 = Number(value2);
+    if (!isNaN(num1) && !isNaN(num2)) {
+      return num1 === num2;
+    }
+
+    // String comparison
+    return String(value1).trim() === String(value2).trim();
+  }
+
+  /**
+   * Evaluate condition with operator
+   */
+  private evaluateCondition(fieldValue: any, operator: string, checkValue: any): boolean {
+    switch (operator) {
+      case '=':
+      case '==':
+        return this.compareValues(fieldValue, checkValue);
+      case '!=':
+        return !this.compareValues(fieldValue, checkValue);
+      case '>':
+        return this.getNumericValue(fieldValue) > this.getNumericValue(checkValue);
+      case '<':
+        return this.getNumericValue(fieldValue) < this.getNumericValue(checkValue);
+      case '>=':
+        return this.getNumericValue(fieldValue) >= this.getNumericValue(checkValue);
+      case '<=':
+        return this.getNumericValue(fieldValue) <= this.getNumericValue(checkValue);
+      default:
+        console.warn(`⚠️ FieldCalculation: Unknown operator: ${operator}`);
+        return false;
+    }
+  }
+
+  /**
+   * Resolve value which might be a literal or a field reference
+   */
+  private resolveValue(value: any, formData: { [key: string]: any }): any {
+    if (value && typeof value === 'object') {
+      if (value.field) {
+        // Field reference
+        return formData[value.field];
+      } else if (value.operation) {
+        // Nested calculation
+        return this.evaluateCalculationRule(value, formData);
+      }
+    }
+    return value;
   }
 
   /**
